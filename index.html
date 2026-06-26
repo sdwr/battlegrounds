@@ -1,0 +1,1870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mini Battlegrounds</title>
+<style>
+  :root{
+    --gold:#f5c542; --gold-deep:#b8901f; --gold-light:#ffe79a;
+    --ink:#f3e9d2; --muted:#c8b48c;
+    --green:#46c95a; --red:#e5534b; --taunt:#d49037; --shield:#ffe07a;
+    --felt:#27532f; --felt2:#163320;
+    --wood1:#a9763c; --wood2:#7e5326; --wood3:#5c3c1b;
+    --tavern:#b14bd6; --tavern2:#7d2ba6;
+  }
+  *{box-sizing:border-box; font-family:"Segoe UI",system-ui,sans-serif;}
+  html,body{height:100%;}
+  body{margin:0; color:var(--ink); overflow:hidden;
+    background:radial-gradient(120% 100% at 50% -20%, #3a1e3f, #1a0e1d 55%, #0c0710 100%);}
+
+  /* ---------- top status bar ---------- */
+  #topbar{position:fixed; top:0; left:0; right:0; height:34px; z-index:30; display:flex; align-items:center;
+    gap:14px; padding:0 16px; background:linear-gradient(180deg,#1c1208ee,#120c06ee);
+    border-bottom:1px solid #00000099; box-shadow:0 2px 8px #0007;}
+  #topbar .brand{font-size:12px; font-weight:800; letter-spacing:2px; color:var(--gold); text-shadow:0 1px 2px #000;}
+  #topbar .phasechip{font-size:11px; font-weight:700; letter-spacing:.6px; padding:2px 11px; border-radius:20px;
+    background:linear-gradient(180deg,var(--gold),var(--gold-deep)); color:#1a1209; text-transform:uppercase;}
+  #topbar.combat .phasechip{background:linear-gradient(180deg,#e57a4b,#a8341f); color:#fff;}
+  #topbar .rinfo{font-size:12px; color:var(--muted);} #topbar .rinfo b{color:var(--ink);}
+  #topbar .spacer{flex:1;}
+
+  /* ---------- table layout ---------- */
+  #table{position:fixed; inset:34px 0 0 0; display:grid;
+    grid-template-columns:88px minmax(0,1fr) 182px; gap:0; padding:10px 7px 12px; min-height:0;}
+
+  /* the felt/wood play surface */
+  #play{position:relative; display:flex; flex-direction:column; min-height:0; padding:10px 10px;
+    border-radius:22px; overflow:hidden;
+    background:
+      radial-gradient(120% 80% at 50% 0%, #6a4a24 0%, #4a3219 38%, #2f2010 75%, #20150a 100%);
+    border:2px solid #1c120899; box-shadow:0 14px 40px #000a, inset 0 2px 0 #ffffff14, inset 0 -30px 60px #0006;}
+  /* faint wood plank lines */
+  #play::before{content:""; position:absolute; inset:0; pointer-events:none; opacity:.16;
+    background:repeating-linear-gradient(90deg, #00000040 0 2px, transparent 2px 92px);}
+  /* ornate gold rim */
+  #play::after{content:""; position:absolute; inset:5px; border-radius:17px; pointer-events:none;
+    border:2px solid #f5c54222; box-shadow:inset 0 0 0 1px #00000055;}
+
+  /* ---------- tavern (Bob) row ---------- */
+  .tavern-row{position:relative; z-index:2; display:flex; align-items:center; justify-content:center;
+    gap:26px; padding:4px 0 10px;}
+  .bob{display:flex; flex-direction:column; align-items:center; gap:2px; min-width:130px;}
+  .bob-portrait{width:66px; height:66px; border-radius:50%; font-size:38px; display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(circle at 40% 30%, #caa066, #6e4a23); border:3px solid var(--gold-deep);
+    box-shadow:0 3px 8px #0008, inset 0 2px 4px #ffffff44, 0 0 0 2px #00000066;}
+  .bob-name{font-size:13px; font-weight:700; color:var(--gold-light); text-shadow:0 1px 2px #000; letter-spacing:.4px;}
+  .bob-tier{font-size:11px; color:var(--muted);} .bob-tier b{color:#d7a3ff;}
+
+  /* round tavern buttons */
+  .tav{appearance:none; border:none; cursor:pointer; position:relative; transition:transform .1s, filter .1s;
+    display:flex; align-items:center; justify-content:center;}
+  .tav:disabled{filter:grayscale(.6) brightness(.6); cursor:not-allowed;}
+  .tav:not(:disabled):hover{transform:translateY(-2px) scale(1.05);}
+  .tav.tier-up{width:66px; height:70px; color:#2a1640; font-weight:800; font-size:26px;
+    background:linear-gradient(180deg,var(--tavern),var(--tavern2)); border:2px solid #4a1668;
+    border-radius:12px 12px 18px 18px; box-shadow:0 4px 8px #0008, inset 0 2px 3px #ffffff55;
+    flex-direction:column; gap:0; line-height:1;}
+  .tav.tier-up .lvl{font-size:24px; color:#ffe79a; text-shadow:0 1px 2px #000;}
+  .tav.tier-up .cost{font-size:14px; background:radial-gradient(circle at 40% 30%,#ffe9a8,var(--gold) 70%); color:#1a1209;
+    border-radius:50%; width:26px; height:26px; display:flex; align-items:center; justify-content:center; margin-top:3px;
+    border:1px solid #00000066; box-shadow:0 1px 2px #0007;}
+  .tav.round-btn{width:60px; height:60px; border-radius:50%; font-size:27px; color:#fff;
+    background:radial-gradient(circle at 38% 28%, #ffe9a8, var(--gold) 35%, var(--gold-deep) 90%);
+    border:2px solid #6b4e12; box-shadow:0 4px 8px #0008, inset 0 2px 3px #ffffff77; text-shadow:0 1px 2px #0006;}
+  .tav.freeze{background:radial-gradient(circle at 38% 28%, #d6f3ff, #6fc4e6 35%, #2e7fa8 90%); border-color:#1d5876;}
+  .tav.freeze.active{box-shadow:0 0 0 3px #8fdcff, 0 0 14px #8fdcffaa, 0 4px 8px #0008; animation:froze 1.6s infinite;}
+  @keyframes froze{50%{box-shadow:0 0 0 3px #c8efff,0 0 18px #c8efffcc,0 4px 8px #0008;}}
+
+  /* ---------- zones ---------- */
+  .zone{position:relative; z-index:2; display:flex; gap:5px; align-items:center; justify-content:center;
+    padding:9px 7px; border-radius:14px; flex:0 0 auto; min-height:206px; transition:box-shadow .15s;}
+  .zone.shop{margin-bottom:6px; background:radial-gradient(120% 150% at 50% -10%, #5a3f1f, #34230f 80%);
+    border:1px solid #00000088; box-shadow:inset 0 3px 18px #0008, inset 0 0 0 1px #f5c54218;}
+  /* during combat the shop zone holds the enemy board */
+  #play.combat .zone.shop{box-shadow:inset 0 0 0 2px #e5534b88, inset 0 3px 18px #0009;
+    background:radial-gradient(120% 150% at 50% -10%, #5a2a22, #34160f 80%);}
+  .zone.shop.sell-hover{box-shadow:inset 0 0 0 2px var(--gold), inset 0 3px 18px #0008;}
+  .zone.shop.sell-hover::after{content:"💰 Drop to sell  (+1 gold)"; position:absolute; inset:0; display:flex;
+    align-items:center; justify-content:center; font-size:18px; font-weight:800; color:var(--gold);
+    background:#1a120999; border-radius:14px; pointer-events:none; text-shadow:0 2px 4px #000; letter-spacing:.5px;}
+  .zone.board{flex:1 1 auto; min-height:206px;
+    background:radial-gradient(120% 150% at 50% 40%, var(--felt), var(--felt2) 85%);
+    border:1px solid #0a1f12; box-shadow:inset 0 3px 22px #000a, inset 0 0 0 1px #ffffff0f;}
+  .zone.board.drag-hover{box-shadow:inset 0 0 0 2px var(--gold), inset 0 3px 22px #000a;}
+
+  .card[draggable="true"]{cursor:grab;}
+  .card[draggable="true"]:active{cursor:grabbing;}
+  .card.noafford{cursor:not-allowed; filter:grayscale(.55) brightness(.8);}
+
+  /* ---------- minion card ---------- */
+  .card{width:130px; height:188px; border-radius:16px; position:relative; cursor:pointer; flex:0 0 auto;
+    background:linear-gradient(165deg,#b9892f,#6a4a1e 55%,#3a2811); border:2px solid #20160a;
+    box-shadow:0 5px 9px #0008, inset 0 1px 0 #ffffff2a; transition:transform .12s, box-shadow .12s; user-select:none;}
+  .card:hover{transform:translateY(-9px); box-shadow:0 18px 28px #000a, 0 0 16px #f5c54244, inset 0 1px 0 #ffffff33; z-index:6;}
+  .card.sel{outline:3px solid var(--gold); outline-offset:1px; transform:translateY(-11px); box-shadow:0 20px 30px #000b, 0 0 22px #f5c54288;}
+  .card.taunt{border-color:var(--taunt);}
+  .card.taunt::before{content:""; position:absolute; inset:-3px; border-radius:18px; pointer-events:none;
+    box-shadow:0 0 0 3px #d4903755, 0 0 14px #d4903766;}
+  .card.shield{box-shadow:0 0 0 2px var(--shield), 0 0 16px 2px #ffe07a77, 0 5px 9px #0008;}
+  /* inner art frame */
+  .card .frame{position:absolute; inset:6px; border-radius:12px; overflow:hidden;
+    background:radial-gradient(110% 70% at 50% 22%, #46603f, #233523 75%, #16241a); border:1px solid #00000066; z-index:1;}
+  .card .art{position:absolute; top:34px; left:0; right:0; text-align:center; font-size:56px; line-height:1;
+    filter:drop-shadow(0 2px 3px #0009); z-index:1;}
+  .card .nm{position:absolute; top:9px; left:5px; right:5px; font-size:15px; line-height:1.05; text-align:center;
+    font-weight:800; text-shadow:0 1px 2px #000,0 0 3px #000; z-index:3; color:#fff8e6;}
+  .card .tribe{position:absolute; top:102px; left:0; right:0; text-align:center; font-size:10px; color:#ffeec2;
+    opacity:.85; text-transform:uppercase; letter-spacing:1.4px; z-index:3; text-shadow:0 1px 2px #000;}
+  .card .keys{position:absolute; bottom:40px; left:2px; right:2px; text-align:center; font-size:12.5px; z-index:3;
+    line-height:1.3; display:flex; flex-direction:column; align-items:center; gap:1px;}
+  .card .kw{display:inline-block; color:#fff3d2; font-weight:600; text-shadow:0 1px 2px #000,0 0 3px #000; cursor:help; padding:0 2px; border-radius:3px;}
+  .card .kw:hover{background:#f5c54233;}
+  /* attack / health gems — smaller, tucked into the bottom corners */
+  .card .atk,.card .hp{position:absolute; bottom:4px; width:30px;height:30px;border-radius:50%; z-index:4;
+    display:flex;align-items:center;justify-content:center; font-weight:800; font-size:17px; color:#fff;
+    text-shadow:0 0 2px #000, 0 1px 1px #000, 0 0 4px #000a;
+    border:2px solid #00000088; box-shadow:0 2px 4px #0008, inset 0 1px 1px #ffffff66;}
+  .card .atk{left:4px; background:radial-gradient(circle at 35% 28%,#ffcf5e,#c9881a);}
+  .card .hp{right:4px; background:radial-gradient(circle at 35% 28%,#ff6f63,#a31f1a);}
+  /* tier banner — one star per tavern tier, sits on top of every card */
+  .card,.slot{margin-top:16px;}
+  .tavbanner{position:absolute; top:-16px; left:50%; transform:translateX(-50%); min-width:46px; height:24px; padding:0 8px;
+    background:linear-gradient(180deg,var(--tavern),var(--tavern2)); border:1px solid #4a1668; border-radius:7px 7px 8px 8px;
+    display:flex; align-items:center; justify-content:center; gap:1px; color:#ffe07a; font-size:12px; letter-spacing:1px;
+    white-space:nowrap; z-index:5; box-shadow:0 2px 4px #0009, inset 0 1px 0 #ffffff55;}
+  .tavbanner::after{content:""; position:absolute; bottom:-6px; left:50%; transform:translateX(-50%);
+    border-left:7px solid transparent; border-right:7px solid transparent; border-top:6px solid var(--tavern2);}
+
+  /* empty slot */
+  .slot{width:130px; height:188px; border-radius:16px; flex:0 0 auto; border:2px dashed #ffffff1c;
+    background:#ffffff07; display:flex; align-items:center; justify-content:center;}
+  .slot::after{content:"+"; color:#ffffff1f; font-size:32px; font-weight:300;}
+  .zone.shop .slot{border-color:#f5c5422e; background:#f5c5420a;}
+
+  /* ---------- hand ---------- */
+  .hand-label{position:relative; z-index:2; display:flex; align-items:center; gap:8px; margin:9px 2px 3px; font-size:11px;
+    font-weight:800; letter-spacing:.6px; color:#cdb98f; text-transform:uppercase;}
+  .hand-count{font-weight:700; color:var(--muted);}
+  #play.combat .hand-label, #play.combat .zone.hand{display:none;}
+  .zone.hand{min-height:150px; padding:8px 7px; background:radial-gradient(120% 150% at 50% 120%, #2b3550, #141b2c 82%);
+    border:1px solid #00000088; box-shadow:inset 0 -3px 18px #0008, inset 0 0 0 1px #7da2ff1f; flex-wrap:wrap;}
+  .zone.hand.drag-hover{box-shadow:inset 0 0 0 2px #7da2ff, inset 0 0 18px #000a;}
+  .zone.hand .card,.zone.hand .slot{margin-top:14px;}
+  .hand-empty{color:#ffffff33; font-size:13px; font-weight:600; letter-spacing:.3px; padding:18px 10px; text-align:center;}
+
+  /* hand/shop cards a touch smaller so a full hand fits */
+  .card.z-hand,.card.z-shop{width:118px; height:170px;}
+  .card.z-hand .art,.card.z-shop .art{font-size:50px; top:30px;}
+
+  /* ---------- spell card ---------- */
+  .card.spell{background:linear-gradient(165deg,#5b3f8f,#3a2766 55%,#241640); border-color:#1b1030;}
+  .card.spell .frame{background:radial-gradient(110% 70% at 50% 22%, #4a3f7a, #271d46 75%, #170f2c); border-color:#00000066;}
+  .card.spell .tribe{color:#dcccff;}
+  .card.spell .spelltext{position:absolute; bottom:12px; left:8px; right:8px; text-align:center; font-size:11px;
+    line-height:1.25; color:#f1ebff; z-index:3; text-shadow:0 1px 2px #000;}
+  .card.spell .spellcost{position:absolute; top:-16px; left:50%; transform:translateX(-50%); width:26px; height:26px; min-width:0;
+    border-radius:50%; background:radial-gradient(circle at 35% 28%,#ffcf5e,#c9881a); color:#3a2400; border:2px solid #00000088;
+    display:flex; align-items:center; justify-content:center; font-weight:800; font-size:14px; z-index:5;
+    box-shadow:0 2px 4px #0009, inset 0 1px 1px #ffffff88;}
+
+  /* ---------- discover overlay ---------- */
+  .overlay{position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center;
+    background:radial-gradient(80% 80% at 50% 40%, #1a1207dd, #000000ee); backdrop-filter:blur(3px);}
+  .overlay.show{display:flex;}
+  .discover-box{display:flex; flex-direction:column; align-items:center; gap:6px; padding:26px 34px;
+    border-radius:18px; background:linear-gradient(180deg,#2a1d0e,#160f06); border:1px solid #f5c54240;
+    box-shadow:0 24px 60px #000c, inset 0 0 0 1px #f5c54222, 0 0 40px #f5c5421f;}
+  .discover-title{font-size:21px; font-weight:900; color:var(--gold-light); letter-spacing:.5px; text-shadow:0 2px 6px #000;}
+  .discover-sub{font-size:12px; color:var(--muted); margin-bottom:12px; letter-spacing:.4px;}
+  .discover-cards{display:flex; gap:22px;}
+  .discover-cards .card{cursor:pointer; transition:transform .12s, box-shadow .12s;}
+  .discover-cards .card:hover{transform:translateY(-12px) scale(1.04); box-shadow:0 22px 34px #000b, 0 0 24px #f5c542aa; z-index:6;}
+
+  /* ---------- golden minion ---------- */
+  .card.golden{border-color:#ffd34d; box-shadow:0 0 0 2px #ffd34d, 0 0 18px 3px #ffcf5e88, 0 5px 9px #0008;
+    background:linear-gradient(165deg,#f0c44e,#9c7320 55%,#5a3f12);}
+  .card.golden .frame{box-shadow:inset 0 0 14px #ffe79a55;}
+  .card.golden .goldbadge{position:absolute; top:-14px; right:-6px; font-size:18px; z-index:6;
+    filter:drop-shadow(0 1px 2px #000); animation:goldSpin 3s linear infinite;}
+  @keyframes goldSpin{0%{transform:rotate(0) scale(1);}50%{transform:rotate(180deg) scale(1.18);}100%{transform:rotate(360deg) scale(1);}}
+
+  /* ---------- board meta ---------- */
+  .board-meta{position:relative; z-index:2; display:flex; align-items:center; gap:7px; margin:5px 2px 0; font-size:11px; color:var(--muted);}
+  .board-meta #boardCount{margin-right:auto; font-weight:700;}
+  .mini{appearance:none; border:1px solid #00000088; border-radius:7px; padding:4px 10px; font-size:11px; font-weight:700;
+    color:var(--ink); cursor:pointer; background:linear-gradient(180deg,#42321a,#2c2010); transition:.1s;}
+  .mini:hover:not(:disabled){border-color:var(--gold); transform:translateY(-1px);}
+  .mini:disabled{opacity:.35; cursor:not-allowed;}
+  .mini.danger{background:linear-gradient(180deg,#7a342e,#5a2420);}
+
+  /* ---------- hero row ---------- */
+  .hero-row{position:relative; z-index:2; display:flex; align-items:center; justify-content:center; gap:20px; margin-top:auto; padding-top:8px;}
+  .gold-pips{display:flex; gap:3px; flex-wrap:wrap; max-width:170px; justify-content:flex-end;}
+  .gold-pips .pip{width:15px; height:15px; border-radius:50%; background:#00000055; border:1px solid #00000088; box-shadow:inset 0 1px 2px #0008;}
+  .gold-pips .pip.on{background:radial-gradient(circle at 38% 30%, #ffe9a8, var(--gold) 55%, var(--gold-deep)); border-color:#6b4e12; box-shadow:0 0 4px #f5c54288, inset 0 1px 1px #fff8;}
+  .hero{position:relative; display:flex; flex-direction:column; align-items:center;}
+  .hero-portrait{width:74px; height:74px; border-radius:50%; font-size:42px; display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(circle at 40% 30%, #7a4f8c, #3a2247); border:3px solid var(--gold-deep);
+    box-shadow:0 4px 10px #000a, inset 0 2px 5px #ffffff44, 0 0 0 2px #00000066;}
+  .hero-hp{position:absolute; bottom:-6px; right:-6px; min-width:28px; height:28px; padding:0 5px; border-radius:15px;
+    background:radial-gradient(circle at 35% 28%,#ff7e72,#a31f1a); border:2px solid #5a0f0c; color:#fff; font-weight:800; font-size:15px;
+    display:flex; align-items:center; justify-content:center; box-shadow:0 2px 5px #0009, inset 0 1px 1px #ffffff66;}
+
+  /* ---------- big right-side End Turn / combat buttons ---------- */
+  .endturn{appearance:none; width:100%; cursor:pointer; padding:18px 12px; border-radius:14px; font-size:17px; font-weight:800; letter-spacing:.5px;
+    color:#0c2410; background:linear-gradient(180deg,#7ee08a,#2f9a3f); border:2px solid #00000055;
+    box-shadow:0 5px 12px #0008, inset 0 2px 3px #ffffff66; transition:.1s; line-height:1.2;}
+  .endturn:hover:not(:disabled){transform:translateY(-2px); filter:brightness(1.07);}
+  .endturn:disabled{opacity:.4; cursor:not-allowed; filter:grayscale(.5);}
+  .endturn.alt{color:#1a1209; background:linear-gradient(180deg,#ffd75e,var(--gold-deep));}   /* Skip */
+  .endturn.go{color:#0c2410; background:linear-gradient(180deg,#7ee08a,#2f9a3f);}              /* Continue */
+
+  /* combat result banner over the felt */
+  #resultBanner{position:absolute; left:0; right:0; top:46%; transform:translateY(-50%); z-index:20; text-align:center;
+    pointer-events:none; opacity:0; transition:opacity .25s;}
+  #resultBanner.show{opacity:1;}
+  #resultBanner span{display:inline-block; font-size:42px; font-weight:900; padding:12px 32px; border-radius:16px;
+    background:#0a0a0add; border:2px solid var(--gold); text-shadow:0 2px 6px #000; box-shadow:0 12px 40px #000c;}
+  #resultBanner .win{color:#8ef09a; border-color:#5fd06f;}
+  #resultBanner .lose{color:#ff9a92; border-color:#e5534b;}
+  /* hide buy-phase chrome while combat plays out on the board */
+  #play.combat .tav{display:none;}
+  #play.combat .board-meta{visibility:hidden;}
+  #play.combat .gold-pips{visibility:hidden;}
+
+  /* ---------- left roster strip ---------- */
+  #rosterStrip{display:flex; flex-direction:column; min-height:0; padding-right:6px;}
+  #roster{display:flex; flex-direction:column; gap:5px; overflow-y:auto; padding:2px;}
+  .rp{position:relative; display:flex; flex-direction:column; align-items:center; gap:1px; padding:4px 3px 5px;
+    border-radius:9px; border:1px solid #ffffff12; background:#ffffff08;}
+  .rp.you{background:#f5c5421f; border-color:#f5c54255;}
+  .rp.dead{opacity:.34; filter:grayscale(1);}
+  .rp-portrait{position:relative; width:40px; height:40px; border-radius:50%; font-size:22px; display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(circle at 40% 30%, #5a4326, #2c1f10); border:2px solid #00000088;}
+  .rp.you .rp-portrait{border-color:var(--gold);}
+  .rp-tier{position:absolute; top:-3px; left:-3px; width:16px; height:16px; border-radius:50%; font-size:9px; font-weight:800;
+    background:linear-gradient(180deg,var(--tavern),var(--tavern2)); color:#fff; border:1px solid #4a1668;
+    display:flex; align-items:center; justify-content:center;}
+  .rp-name{font-size:9.5px; font-weight:600; color:var(--ink); max-width:60px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .rp.dead .rp-name{text-decoration:line-through;}
+  .rp-hp{font-size:12px; font-weight:800; color:#ff948c;}
+
+  /* ---------- right rail ---------- */
+  #rail{display:flex; flex-direction:column; min-height:0; padding-left:8px; gap:8px;}
+  .gold-readout{flex:0 0 auto; text-align:center; font-size:13px; font-weight:800; color:var(--gold); padding:5px; border-radius:9px;
+    background:#0006; border:1px solid #f5c54233;}
+  .gold-readout span:last-child{font-size:10px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.5px;}
+  /* End Turn / Skip / Continue live here, vertically centered = right-middle of screen */
+  #rctl{flex:0 0 auto; margin-top:auto; margin-bottom:auto; display:flex; flex-direction:column; gap:8px;}
+  #log{flex:0 0 auto; height:150px; overflow-y:auto; font-size:11.5px; line-height:1.5; background:#0006; border:1px solid #ffffff12; border-radius:9px; padding:9px;}
+  #log div{padding:1px 0;}
+  #log .you{color:var(--gold);} #log .win{color:var(--green);} #log .lose{color:#ff8a82;} #log .sys{color:var(--muted);}
+
+  /* ---------- keyword tooltip ---------- */
+  #tip{position:fixed; z-index:80; max-width:250px; pointer-events:none; opacity:0; transform:translateY(4px);
+    transition:opacity .1s; background:linear-gradient(180deg,#2a1d0e,#1a1207); border:1px solid var(--gold);
+    border-radius:11px; padding:10px 12px; box-shadow:0 12px 34px #000c, 0 0 0 1px #00000088;}
+  #tip.show{opacity:1; transform:translateY(0);}
+  #tip .tip-head{display:flex; align-items:center; gap:9px; margin-bottom:6px;}
+  #tip .tip-art{font-size:26px; line-height:1;}
+  #tip .tip-name{font-size:13px; font-weight:800; color:var(--gold-light);}
+  #tip .tip-sub{font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px;}
+  #tip .tip-stats{margin-left:auto; font-size:15px; font-weight:800;}
+  #tip .tip-stats .a{color:#ffcf5e;} #tip .tip-stats .h{color:#ff8a82;}
+  #tip .tip-kws{border-top:1px solid #ffffff1c; padding-top:6px; display:flex; flex-direction:column; gap:6px;}
+  #tip .tk b{display:block; font-size:11.5px; color:#ffe79a;}
+  #tip .tk span{display:block; font-size:11px; color:var(--ink); opacity:.9; line-height:1.35;}
+  #tip .tip-empty{font-size:11px; color:var(--muted); font-style:italic;}
+
+  /* ---------- combat animations (played on the main board) ---------- */
+  /* attacker flash on impact */
+  .card.strike{filter:brightness(1.3) drop-shadow(0 0 10px var(--gold));}
+  /* defender recoil shake */
+  .card.hurt{animation:hsHurt .34s ease;}
+  @keyframes hsHurt{0%,100%{transform:translate(0,0) rotate(0);}
+    18%{transform:translate(-7px,2px) rotate(-5deg);}
+    40%{transform:translate(6px,-1px) rotate(4deg);}
+    62%{transform:translate(-4px,1px) rotate(-2deg);}
+    82%{transform:translate(2px,0) rotate(1deg);}}
+  /* health gem pops red when damaged */
+  .card .hp.dmg{animation:hpHit .42s ease;}
+  .card .hp.dmg.poison{animation:hpPoison .42s ease;}
+  @keyframes hpHit{0%{transform:scale(1);}28%{transform:scale(1.6); box-shadow:0 0 14px #ff5b5b,0 2px 4px #0008,inset 0 1px 1px #ffffff66;}100%{transform:scale(1);}}
+  @keyframes hpPoison{0%{transform:scale(1);}28%{transform:scale(1.6); box-shadow:0 0 14px #8bd450,0 2px 4px #0008,inset 0 1px 1px #ffffff66;}100%{transform:scale(1);}}
+  /* floating damage number */
+  .card .dmgnum{position:absolute; top:34px; left:0; right:0; text-align:center; z-index:9; pointer-events:none;
+    font-size:24px; font-weight:900; color:#ff5b5b; text-shadow:0 0 5px #000,0 2px 3px #000,0 0 10px #ff000088;
+    animation:dmgFloat .7s ease-out forwards;}
+  .card .dmgnum.poison{color:#9be86a; text-shadow:0 0 5px #000,0 2px 3px #000,0 0 10px #4caf2288;}
+  @keyframes dmgFloat{0%{opacity:0; transform:translateY(6px) scale(.6);}
+    20%{opacity:1; transform:translateY(-6px) scale(1.15);}
+    100%{opacity:0; transform:translateY(-34px) scale(1);}}
+  /* death */
+  .card.dying{animation:hsDie .24s ease-in forwards; pointer-events:none; z-index:1;}
+  @keyframes hsDie{to{opacity:0; transform:scale(.55) rotate(10deg);}}
+  /* divine shield breaking */
+  .card.shieldpop{animation:shPop .36s ease;}
+  @keyframes shPop{0%{box-shadow:0 0 0 3px var(--shield),0 0 22px 5px #ffe07a;}100%{box-shadow:none;}}
+  #toast{position:fixed; top:54px; left:50%; transform:translateX(-50%); background:#000d; border:1px solid var(--gold);
+    color:var(--gold); padding:9px 18px; border-radius:9px; font-size:14px; font-weight:600; opacity:0; transition:.25s;
+    pointer-events:none; z-index:70; box-shadow:0 6px 20px #0009;}
+  #toast.show{opacity:1;}
+
+  /* ---------- responsive ---------- */
+  @media (max-width: 900px){
+    body{overflow:auto;}
+    #table{position:static; inset:auto; height:auto; grid-template-columns:1fr; gap:10px; padding:44px 10px 14px;}
+    #rosterStrip{order:3; padding:0;}
+    #roster{flex-direction:row; flex-wrap:wrap;}
+    #rail{order:2; padding:0;} #log{height:120px; flex:none;}
+    #play{order:1; padding:12px;}
+    .zone{flex-wrap:wrap;}
+  }
+  @media (max-width: 480px){
+    .card,.slot{width:88px; height:128px;}
+    .card .art{font-size:34px;}
+    .card .atk,.card .hp{width:27px;height:27px;font-size:14px;}
+  }
+</style>
+</head>
+<body>
+<div id="topbar">
+  <span class="brand">⚔ MINI BATTLEGROUNDS</span>
+  <span class="phasechip" id="hdrPhase">Recruit</span>
+  <span class="rinfo">Round <b id="hdrRound">1</b></span>
+  <span class="spacer"></span>
+  <span class="rinfo">Tavern Tier <b id="hdrTier">1</b></span>
+</div>
+
+<div id="table">
+  <!-- left: player roster strip -->
+  <div id="rosterStrip"><div id="roster"></div></div>
+
+  <!-- center: the tavern table (also the combat arena) -->
+  <div id="play">
+    <div class="tavern-row">
+      <button id="btnUpgrade" class="tav tier-up" title="Upgrade Tavern Tier">
+        <span class="lvl">⬆</span><span class="cost" id="upCost">5</span>
+      </button>
+      <div class="bob">
+        <div class="bob-portrait" id="bobPortrait">🧔</div>
+        <div class="bob-name" id="bobName">Bob's Tavern</div>
+        <div class="bob-tier">Tier <b id="bobTier">1</b></div>
+      </div>
+      <button id="btnRoll" class="tav round-btn refresh" title="Refresh — 1 gold">🔄</button>
+      <button id="btnFreeze" class="tav round-btn freeze" title="Freeze the tavern">❄</button>
+    </div>
+
+    <div id="shop" class="zone shop"></div>
+
+    <div id="board" class="zone board"></div>
+    <div class="board-meta">
+      <span id="boardCount">0 / 7</span>
+      <button id="btnSell" class="mini danger" disabled>💰 Sell +1g</button>
+      <button id="btnLeft" class="mini" disabled title="Move left">◀</button>
+      <button id="btnRight" class="mini" disabled title="Move right">▶</button>
+    </div>
+
+    <div class="hand-label"><span>✋ Your Hand</span> <span id="handCount" class="hand-count"></span></div>
+    <div id="hand" class="zone hand"></div>
+
+    <div class="hero-row">
+      <div class="gold-pips" id="goldPips"></div>
+      <div class="hero">
+        <div class="hero-portrait">🧝‍♀️</div>
+        <div class="hero-hp"><span id="hdrHp">30</span></div>
+      </div>
+    </div>
+
+    <div id="resultBanner"></div>
+  </div>
+
+  <!-- right: gold + End Turn (center) + log -->
+  <div id="rail">
+    <div class="gold-readout"><span id="hdrGold">3</span>/<span id="hdrGoldMax">3</span> <span>gold</span></div>
+    <div id="rctl">
+      <button id="btnEnd" class="endturn">End Turn ▶</button>
+      <button id="btnSkip" class="endturn alt" style="display:none">⏭ Skip</button>
+      <button id="btnContinue" class="endturn go" style="display:none">Continue ▶</button>
+    </div>
+    <div id="log"></div>
+  </div>
+</div>
+
+<div id="tip"></div>
+<div id="toast"></div>
+
+<div id="discover" class="overlay">
+  <div class="discover-box">
+    <div class="discover-title">✦ Triple Reward — Discover a Minion</div>
+    <div class="discover-sub">Pick one to add to your hand</div>
+    <div class="discover-cards"></div>
+  </div>
+</div>
+
+<script>
+/* ============================== MINION POOL ============================== */
+// tier, name, atk, hp, tribe, keywords[], battlecry(self,player), deathrattle(self,board,side)
+const T = {TAUNT:'Taunt', SHIELD:'Divine Shield'};
+// Full card data (kept in sync with minions.json). 10 tribes x 6 tiers x 2 = 120.
+const MINIONS = [
+  {id:'spores_t1_sporeling',tier:1,name:'Sporeling',tribe:'Spores',atk:2,health:1,keywords:{toxin:1}},
+  {id:'spores_t1_mossback',tier:1,name:'Mossback',tribe:'Spores',atk:1,health:3,keywords:{toxin:1}},
+  {id:'spores_t2_cultivator',tier:2,name:'Cultivator',tribe:'Spores',atk:2,health:2,keywords:{fx:'cultivator'}},
+  {id:'spores_t2_blightcap',tier:2,name:'Blightcap',tribe:'Spores',atk:3,health:2,keywords:{toxin:2}},
+  {id:'spores_t3_rotweaver',tier:3,name:'Rotweaver',tribe:'Spores',atk:3,health:4,keywords:{fx:'rotweaver'}},
+  {id:'spores_t3_sporemother',tier:3,name:'Sporemother',tribe:'Spores',atk:2,health:5,keywords:{fx:'sporemother'}},
+  {id:'spores_t4_plaguelord',tier:4,name:'Plaguelord',tribe:'Spores',atk:4,health:5,keywords:{toxin:1,fx:'plaguelord'}},
+  {id:'spores_t4_fungalbrute',tier:4,name:'Fungal Brute',tribe:'Spores',atk:5,health:4,keywords:{toxin:3,fx:'fungalbrute'}},
+  {id:'spores_t5_decayengine',tier:5,name:'Decay Engine',tribe:'Spores',atk:5,health:7,keywords:{fx:'decayengine'}},
+  {id:'spores_t5_mycelialqueen',tier:5,name:'Mycelial Queen',tribe:'Spores',atk:4,health:6,keywords:{fx:'mycelialqueen'}},
+  {id:'spores_t6_thewilting',tier:6,name:'The Wilting',tribe:'Spores',atk:7,health:7,keywords:{toxin:1,fx:'thewilting'}},
+  {id:'spores_t6_eternalrot',tier:6,name:'Eternal Rot',tribe:'Spores',atk:6,health:8,keywords:{toxin:1,fx:'eternalrot'}},
+  {id:'embers_t1_cinder',tier:1,name:'Cinder',tribe:'Embers',atk:2,health:2,keywords:{kindle:1}},
+  {id:'embers_t1_tinder',tier:1,name:'Tinder',tribe:'Embers',atk:2,health:2,keywords:{fx:'tinder'}},
+  {id:'embers_t2_bellows',tier:2,name:'Bellows',tribe:'Embers',atk:2,health:3,keywords:{fx:'bellows'}},
+  {id:'embers_t2_flarewing',tier:2,name:'Flarewing',tribe:'Embers',atk:3,health:2,keywords:{kindle:2}},
+  {id:'embers_t3_forgekeeper',tier:3,name:'Forgekeeper',tribe:'Embers',atk:3,health:5,keywords:{kindle:1,fx:'forgekeeper'}},
+  {id:'embers_t3_wildfire',tier:3,name:'Wildfire',tribe:'Embers',atk:4,health:3,keywords:{kindle:2}},
+  {id:'embers_t4_conflagar',tier:4,name:'Conflagar',tribe:'Embers',atk:4,health:6,keywords:{fx:'conflagar'}},
+  {id:'embers_t4_phoenixember',tier:4,name:'Phoenix Ember',tribe:'Embers',atk:5,health:4,keywords:{kindle:2,reborn:true,fx:'phoenix'}},
+  {id:'embers_t5_infernocore',tier:5,name:'Inferno Core',tribe:'Embers',atk:5,health:7,keywords:{kindle:1,fx:'infernocore'}},
+  {id:'embers_t5_heatdeath',tier:5,name:'Heat Death',tribe:'Embers',atk:6,health:5,keywords:{kindle:3}},
+  {id:'embers_t6_eternalflame',tier:6,name:'The Eternal Flame',tribe:'Embers',atk:6,health:8,keywords:{kindle:2,fx:'eternalflame'}},
+  {id:'embers_t6_sunshatter',tier:6,name:'Sunshatter',tribe:'Embers',atk:7,health:7,keywords:{kindle:3,fx:'sunshatter'}},
+  {id:'swarm_t1_broodling',tier:1,name:'Broodling',tribe:'Swarm',atk:2,health:1,keywords:{brood:1}},
+  {id:'swarm_t1_hatchmother',tier:1,name:'Hatchmother',tribe:'Swarm',atk:1,health:2,keywords:{fx:'hatchmother'}},
+  {id:'swarm_t2_dronecaptain',tier:2,name:'Drone Captain',tribe:'Swarm',atk:2,health:3,keywords:{fx:'dronecaptain'}},
+  {id:'swarm_t2_tunneler',tier:2,name:'Tunneler',tribe:'Swarm',atk:3,health:2,keywords:{brood:2}},
+  {id:'swarm_t3_hivelord',tier:3,name:'Hive Lord',tribe:'Swarm',atk:3,health:5,keywords:{fx:'hivelord'}},
+  {id:'swarm_t3_eggsac',tier:3,name:'Egg Sac',tribe:'Swarm',atk:2,health:4,keywords:{fx:'eggsac'}},
+  {id:'swarm_t4_broodqueen',tier:4,name:'Brood Queen',tribe:'Swarm',atk:4,health:5,keywords:{fx:'broodqueen'}},
+  {id:'swarm_t4_swarmguard',tier:4,name:'Swarmguard',tribe:'Swarm',atk:4,health:6,keywords:{fx:'swarmguard'}},
+  {id:'swarm_t5_greathive',tier:5,name:'The Great Hive',tribe:'Swarm',atk:5,health:7,keywords:{fx:'greathive'}},
+  {id:'swarm_t5_overmind',tier:5,name:'Overmind',tribe:'Swarm',atk:6,health:6,keywords:{fx:'overmind'}},
+  {id:'swarm_t6_endlessbrood',tier:6,name:'Endless Brood',tribe:'Swarm',atk:6,health:8,keywords:{fx:'endlessbrood'}},
+  {id:'swarm_t6_apexswarm',tier:6,name:'Apex Swarm',tribe:'Swarm',atk:5,health:9,keywords:{fx:'apexswarm'}},
+  {id:'golems_t1_pebblegolem',tier:1,name:'Pebble Golem',tribe:'Golems',atk:2,health:3,keywords:{bulwark:2}},
+  {id:'golems_t1_wardstone',tier:1,name:'Wardstone',tribe:'Golems',atk:1,health:4,keywords:{taunt:true,fx:'wardstone'}},
+  {id:'golems_t2_reinforcer',tier:2,name:'Reinforcer',tribe:'Golems',atk:2,health:4,keywords:{fx:'reinforcer'}},
+  {id:'golems_t2_irongolem',tier:2,name:'Iron Golem',tribe:'Golems',atk:4,health:3,keywords:{bulwark:3}},
+  {id:'golems_t3_quartzsentinel',tier:3,name:'Quartz Sentinel',tribe:'Golems',atk:3,health:6,keywords:{bulwark:4,fx:'quartz'}},
+  {id:'golems_t3_anvilback',tier:3,name:'Anvilback',tribe:'Golems',atk:4,health:5,keywords:{fx:'anvilback'}},
+  {id:'golems_t4_mountaingolem',tier:4,name:'Mountain Golem',tribe:'Golems',atk:5,health:7,keywords:{bulwark:5,taunt:true}},
+  {id:'golems_t4_magmagolem',tier:4,name:'Magma Golem',tribe:'Golems',atk:6,health:5,keywords:{bulwark:4,fx:'magma'}},
+  {id:'golems_t5_adamantcolossus',tier:5,name:'Adamant Colossus',tribe:'Golems',atk:6,health:8,keywords:{bulwark:6,fx:'adamant'}},
+  {id:'golems_t5_geode',tier:5,name:'Geode',tribe:'Golems',atk:5,health:7,keywords:{fx:'geode'}},
+  {id:'golems_t6_theunbroken',tier:6,name:'The Unbroken',tribe:'Golems',atk:7,health:9,keywords:{bulwark:8,taunt:true,fx:'unbroken'}},
+  {id:'golems_t6_worldcoregolem',tier:6,name:'Worldcore Golem',tribe:'Golems',atk:7,health:9,keywords:{fx:'worldcore'}},
+  {id:'phantoms_t1_wisp',tier:1,name:'Wisp',tribe:'Phantoms',atk:2,health:1,keywords:{fx:'wisp'}},
+  {id:'phantoms_t1_specter',tier:1,name:'Specter',tribe:'Phantoms',atk:1,health:2,keywords:{haunt:1}},
+  {id:'phantoms_t2_gravecaller',tier:2,name:'Gravecaller',tribe:'Phantoms',atk:2,health:4,keywords:{fx:'gravecaller'}},
+  {id:'phantoms_t2_soulbinder',tier:2,name:'Soulbinder',tribe:'Phantoms',atk:3,health:2,keywords:{fx:'soulbinder'}},
+  {id:'phantoms_t3_reaper',tier:3,name:'Reaper',tribe:'Phantoms',atk:4,health:4,keywords:{haunt:2}},
+  {id:'phantoms_t3_mourncaller',tier:3,name:'Mourncaller',tribe:'Phantoms',atk:3,health:5,keywords:{fx:'mourncaller'}},
+  {id:'phantoms_t4_necrolord',tier:4,name:'Necrolord',tribe:'Phantoms',atk:3,health:6,keywords:{fx:'necrolord'}},
+  {id:'phantoms_t4_banshee',tier:4,name:'Banshee',tribe:'Phantoms',atk:5,health:4,keywords:{fx:'banshee'}},
+  {id:'phantoms_t5_soulengine',tier:5,name:'Soul Engine',tribe:'Phantoms',atk:5,health:7,keywords:{fx:'soulengine'}},
+  {id:'phantoms_t5_gravetitan',tier:5,name:'Grave Titan',tribe:'Phantoms',atk:6,health:6,keywords:{haunt:3,fx:'gravetitan'}},
+  {id:'phantoms_t6_thereckoning',tier:6,name:'The Reckoning',tribe:'Phantoms',atk:6,health:8,keywords:{fx:'reckoning'}},
+  {id:'phantoms_t6_eternalwraith',tier:6,name:'Eternal Wraith',tribe:'Phantoms',atk:7,health:7,keywords:{haunt:2,reborn:true}},
+  {id:'raiders_t1_deckhand',tier:1,name:'Deckhand',tribe:'Raiders',atk:3,health:1,keywords:{plunder:1}},
+  {id:'raiders_t1_lookout',tier:1,name:'Lookout',tribe:'Raiders',atk:2,health:2,keywords:{fx:'lookout'}},
+  {id:'raiders_t2_cutthroat',tier:2,name:'Cutthroat',tribe:'Raiders',atk:3,health:2,keywords:{plunder:2}},
+  {id:'raiders_t2_quartermaster',tier:2,name:'Quartermaster',tribe:'Raiders',atk:2,health:4,keywords:{fx:'quartermaster'}},
+  {id:'raiders_t3_firstmate',tier:3,name:'First Mate',tribe:'Raiders',atk:4,health:3,keywords:{plunder:2,fx:'firstmate'}},
+  {id:'raiders_t3_cannoneer',tier:3,name:'Cannoneer',tribe:'Raiders',atk:3,health:5,keywords:{fx:'cannoneer'}},
+  {id:'raiders_t4_dreadcaptain',tier:4,name:'Dread Captain',tribe:'Raiders',atk:5,health:4,keywords:{fx:'dreadcaptain'}},
+  {id:'raiders_t4_boardingparty',tier:4,name:'Boarding Party',tribe:'Raiders',atk:4,health:6,keywords:{fx:'boardingparty'}},
+  {id:'raiders_t5_seatyrant',tier:5,name:'Sea Tyrant',tribe:'Raiders',atk:6,health:5,keywords:{plunder:3,windfury:true}},
+  {id:'raiders_t5_flagship',tier:5,name:'Flagship',tribe:'Raiders',atk:5,health:7,keywords:{fx:'flagship'}},
+  {id:'raiders_t6_blackfleet',tier:6,name:'The Black Fleet',tribe:'Raiders',atk:7,health:6,keywords:{plunder:4,fx:'blackfleet'}},
+  {id:'raiders_t6_krakenlord',tier:6,name:'Krakenlord',tribe:'Raiders',atk:8,health:8,keywords:{fx:'krakenlord'}},
+  {id:'mirrors_t1_shimmerling',tier:1,name:'Shimmerling',tribe:'Mirrors',atk:2,health:2,keywords:{reflect:true}},
+  {id:'mirrors_t1_echoling',tier:1,name:'Echoling',tribe:'Mirrors',atk:1,health:3,keywords:{reflect:true,fx:'echoling'}},
+  {id:'mirrors_t2_mimic',tier:2,name:'Mimic',tribe:'Mirrors',atk:3,health:3,keywords:{reflect:true,fx:'mimic'}},
+  {id:'mirrors_t2_glassshard',tier:2,name:'Glass Shard',tribe:'Mirrors',atk:2,health:3,keywords:{fx:'glassshard'}},
+  {id:'mirrors_t3_doppel',tier:3,name:'Doppel',tribe:'Mirrors',atk:3,health:5,keywords:{reflect:true,fx:'doppel'}},
+  {id:'mirrors_t3_prism',tier:3,name:'Prism',tribe:'Mirrors',atk:3,health:5,keywords:{reflect:true,fx:'prism'}},
+  {id:'mirrors_t4_reflection',tier:4,name:'Reflection',tribe:'Mirrors',atk:5,health:5,keywords:{fx:'reflection'}},
+  {id:'mirrors_t4_hallofmirrors',tier:4,name:'Hall of Mirrors',tribe:'Mirrors',atk:3,health:6,keywords:{fx:'hallofmirrors'}},
+  {id:'mirrors_t5_kaleidos',tier:5,name:'Kaleidos',tribe:'Mirrors',atk:6,health:6,keywords:{reflect:true,fx:'kaleidos'}},
+  {id:'mirrors_t5_twinfate',tier:5,name:'Twin Fate',tribe:'Mirrors',atk:5,health:7,keywords:{fx:'twinfate'}},
+  {id:'mirrors_t6_theinfinite',tier:6,name:'The Infinite',tribe:'Mirrors',atk:7,health:7,keywords:{fx:'infinite'}},
+  {id:'mirrors_t6_perfectmirror',tier:6,name:'Perfect Mirror',tribe:'Mirrors',atk:6,health:9,keywords:{fx:'perfectmirror'}},
+  {id:'wardens_t1_silencer',tier:1,name:'Silencer',tribe:'Wardens',atk:2,health:3,keywords:{suppress:true}},
+  {id:'wardens_t1_dampener',tier:1,name:'Dampener',tribe:'Wardens',atk:1,health:4,keywords:{fx:'dampener'}},
+  {id:'wardens_t2_nullguard',tier:2,name:'Nullguard',tribe:'Wardens',atk:3,health:3,keywords:{suppress:true,taunt:true}},
+  {id:'wardens_t2_hexward',tier:2,name:'Hexward',tribe:'Wardens',atk:2,health:4,keywords:{fx:'hexward'}},
+  {id:'wardens_t3_aegiswarden',tier:3,name:'Aegis Warden',tribe:'Wardens',atk:4,health:4,keywords:{fx:'aegis'}},
+  {id:'wardens_t3_counterspell',tier:3,name:'Counterspell',tribe:'Wardens',atk:3,health:5,keywords:{fx:'counterspell'}},
+  {id:'wardens_t4_voidwarden',tier:4,name:'Voidwarden',tribe:'Wardens',atk:5,health:5,keywords:{fx:'voidwarden'}},
+  {id:'wardens_t4_mutecolossus',tier:4,name:'Mute Colossus',tribe:'Wardens',atk:4,health:7,keywords:{fx:'mutecolossus'}},
+  {id:'wardens_t5_sentinelprime',tier:5,name:'Sentinel Prime',tribe:'Wardens',atk:6,health:6,keywords:{fx:'sentinel'}},
+  {id:'wardens_t5_grandinquisitor',tier:5,name:'Grand Inquisitor',tribe:'Wardens',atk:5,health:7,keywords:{fx:'inquisitor'}},
+  {id:'wardens_t6_thesilence',tier:6,name:'The Silence',tribe:'Wardens',atk:7,health:7,keywords:{fx:'thesilence'}},
+  {id:'wardens_t6_nullsovereign',tier:6,name:'Null Sovereign',tribe:'Wardens',atk:6,health:9,keywords:{fx:'nullsovereign'}},
+  {id:'alchemists_t1_coinimp',tier:1,name:'Coin Imp',tribe:'Alchemists',atk:2,health:2,keywords:{fx:'coinimp'}},
+  {id:'alchemists_t1_vialkeeper',tier:1,name:'Vialkeeper',tribe:'Alchemists',atk:1,health:3,keywords:{fx:'vialkeeper'}},
+  {id:'alchemists_t2_transmuter',tier:2,name:'Transmuter',tribe:'Alchemists',atk:2,health:2,keywords:{fx:'transmuter'}},
+  {id:'alchemists_t2_goldwright',tier:2,name:'Goldwright',tribe:'Alchemists',atk:1,health:4,keywords:{fx:'goldwright'}},
+  {id:'alchemists_t3_philosopher',tier:3,name:'Philosopher',tribe:'Alchemists',atk:3,health:3,keywords:{fx:'philosopher'}},
+  {id:'alchemists_t3_catalyst',tier:3,name:'Catalyst',tribe:'Alchemists',atk:2,health:5,keywords:{fx:'catalyst'}},
+  {id:'alchemists_t4_goldcoregolem',tier:4,name:'Goldcore Golem',tribe:'Alchemists',atk:4,health:4,keywords:{fx:'goldcore'}},
+  {id:'alchemists_t4_elixirmaster',tier:4,name:'Elixir Master',tribe:'Alchemists',atk:3,health:6,keywords:{fx:'elixir'}},
+  {id:'alchemists_t5_themint',tier:5,name:'The Mint',tribe:'Alchemists',atk:5,health:5,keywords:{fx:'mint'}},
+  {id:'alchemists_t5_transcendant',tier:5,name:'Transcendant',tribe:'Alchemists',atk:4,health:7,keywords:{fx:'transcendant'}},
+  {id:'alchemists_t6_magnumopus',tier:6,name:'Magnum Opus',tribe:'Alchemists',atk:6,health:6,keywords:{fx:'magnumopus'}},
+  {id:'alchemists_t6_grandwork',tier:6,name:'The Grand Work',tribe:'Alchemists',atk:5,health:9,keywords:{fx:'grandwork'}},
+  {id:'titans_t1_titanling',tier:1,name:'Titanling',tribe:'Titans',atk:2,health:3,keywords:{apex:true}},
+  {id:'titans_t1_greenhorn',tier:1,name:'Greenhorn',tribe:'Titans',atk:1,health:2,keywords:{apex:true,fx:'freshtitan'}},
+  {id:'titans_t2_aegisling',tier:2,name:'Aegisling',tribe:'Titans',atk:2,health:2,keywords:{apex:true,divineShield:true}},
+  {id:'titans_t2_breaker',tier:2,name:'Breaker',tribe:'Titans',atk:4,health:1,keywords:{apex:true}},
+  {id:'titans_t3_earthshaker',tier:3,name:'Earthshaker',tribe:'Titans',atk:5,health:4,keywords:{apex:true,cleave:true}},
+  {id:'titans_t3_gigaton',tier:3,name:'Gigaton',tribe:'Titans',atk:3,health:7,keywords:{apex:true,fx:'gigaton'}},
+  {id:'titans_t4_worldbreaker',tier:4,name:'Worldbreaker',tribe:'Titans',atk:6,health:5,keywords:{apex:true,cleave:true}},
+  {id:'titans_t4_singularity',tier:4,name:'Singularity',tribe:'Titans',atk:3,health:7,keywords:{apex:true,fx:'singularity'}},
+  {id:'titans_t5_atlas',tier:5,name:'Atlas',tribe:'Titans',atk:7,health:7,keywords:{apex:true,taunt:true,cleave:true}},
+  {id:'titans_t5_colossusprime',tier:5,name:'Colossus Prime',tribe:'Titans',atk:6,health:8,keywords:{apex:true,fx:'colossusprime'}},
+  {id:'titans_t6_thetitan',tier:6,name:'The Titan',tribe:'Titans',atk:9,health:9,keywords:{apex:true,cleave:true,windfury:true}},
+  {id:'titans_t6_genesisengine',tier:6,name:'Genesis Engine',tribe:'Titans',atk:8,health:10,keywords:{apex:true,fx:'genesis'}},
+];
+// Keyword -> short label shown on the card's keys line
+const KW_LABEL = {
+  toxin:'☠ Toxin', bulwark:'⛨ Bulwark', kindle:'🔥 Kindle', haunt:'⚰ Haunt',
+  plunder:'⚓ Plunder', apex:'⛰ Apex', brood:'🐛 Brood', suppress:'🔇 Suppress',
+  reflect:'🪞 Reflect', windfury:'↻ Windfury', reborn:'♻ Reborn'
+};
+// Legacy POOL shape (t / a / h) the rest of the engine expects.
+const POOL = MINIONS.map(d=>({t:d.tier, name:d.name, a:d.atk, h:d.health, tribe:d.tribe, keywords:d.keywords||{}, id:d.id}));
+
+const TIER_OFFERS = {1:3,2:4,3:4,4:5,5:5,6:6};
+const UPGRADE_BASE = {2:5,3:7,4:8,5:9,6:10};
+const MAX_BOARD = 7, MAX_HP = 30, MAX_TIER = 6, HAND_MAX = 10;
+
+/* ============================== STATE ============================== */
+let uid = 1;
+function mk(def){ // instantiate a fresh minion from a pool def
+  const k=def.keywords||{};
+  return {id:uid++, def, name:def.name, a:def.a, h:def.h, maxh:def.h, tribe:def.tribe, t:def.t,
+          taunt:!!k.taunt, shield:!!k.divineShield, cleave:!!k.cleave, windfury:!!k.windfury, reborn:!!k.reborn,
+          bulwark:k.bulwark||0, kindle:k.kindle||0, haunt:k.haunt||0, toxinApply:k.toxin||0,
+          plunder:k.plunder||0, apex:!!k.apex, brood:k.brood||0, suppress:!!k.suppress, reflect:!!k.reflect,
+          aura:k.aura||null, fx:k.fx||null};
+}
+function buildPool(){ const arr=[]; POOL.forEach(d=>{ const copies = 16 - d.t*2; for(let i=0;i<copies;i++) arr.push(d); }); return arr; }
+
+/* ============================== SPELLS ============================== */
+// Tavern spells. They sit in the hand after purchase and are consumed when cast.
+// target:'friendly' -> drag onto one of your minions;  target:'none' -> cast directly.
+const SPELLS = [
+  {sid:'spell_coin',     tier:1, name:'Tavern Coin',    cost:0, art:'🪙', target:'none',     text:'Gain 1 gold this turn.',                 cast:(p)=>{ p.gold=Math.min(10,p.gold+1); }},
+  {sid:'spell_sharpen',  tier:1, name:'Sharpen',        cost:1, art:'🗡️', target:'friendly', text:'Give a friendly minion +2/+1.',           cast:(p,t)=>{ t.a+=2; t.h+=1; t.maxh+=1; }},
+  {sid:'spell_reinforce',tier:1, name:'Reinforce',      cost:1, art:'🧱', target:'friendly', text:'Give a friendly minion +1/+2.',           cast:(p,t)=>{ t.a+=1; t.h+=2; t.maxh+=2; }},
+  {sid:'spell_taunt',    tier:2, name:'Hold the Line',  cost:1, art:'🪨', target:'friendly', text:'Give a friendly minion Taunt and +0/+2.', cast:(p,t)=>{ t.taunt=true; t.h+=2; t.maxh+=2; }},
+  {sid:'spell_bless',    tier:2, name:'Bless',          cost:2, art:'✦',  target:'friendly', text:'Give a friendly minion Divine Shield.',   cast:(p,t)=>{ t.shield=true; }},
+  {sid:'spell_warcry',   tier:2, name:'War Cry',        cost:2, art:'📣', target:'none',     text:'Give your minions +1/+1.',               cast:(p)=>{ p.board.forEach(m=>{ m.a+=1; m.h+=1; m.maxh+=1; }); }},
+  {sid:'spell_growth',   tier:3, name:'Greater Growth', cost:3, art:'🌿', target:'friendly', text:'Give a friendly minion +3/+3.',           cast:(p,t)=>{ t.a+=3; t.h+=3; t.maxh+=3; }},
+  {sid:'spell_gust',     tier:4, name:'Gust',           cost:3, art:'↻',  target:'friendly', text:'Give a friendly minion Windfury.',        cast:(p,t)=>{ t.windfury=true; }},
+];
+// instantiate a spell as a shop/hand card
+function mkSpell(def){ return {id:uid++, spell:true, sdef:def, name:def.name, cost:def.cost, art:def.art,
+                               target:def.target, text:def.text, cast:def.cast}; }
+
+// Combine three copies into one Golden minion: double the BASE stats, then add back the
+// buffs the merged copies had accumulated (stats above base, minus aura contributions so
+// auras don't double-count once the golden is re-aura'd on the board).
+function makeGolden(copies){
+  const def = copies[0].def;
+  const base = mk(def);                 // a fresh, unbuffed instance = base stats/keywords
+  const g = mk(def); g.golden=true;
+  let addA=0, addH=0;
+  copies.forEach(c=>{
+    addA += (c.a - (c._aA||0)) - base.a;
+    addH += (c.maxh - (c._aH||0)) - base.maxh;
+  });
+  g.a    = base.a*2    + Math.max(0,addA);
+  g.maxh = base.maxh*2 + Math.max(0,addH);
+  g.h    = g.maxh;
+  // numeric keyword magnitudes: doubled base + extra stacks gained on the copies
+  ['bulwark','kindle','haunt','toxinApply','plunder','brood'].forEach(k=>{
+    let extra=0; copies.forEach(c=>{ extra += (c[k]||0) - (base[k]||0); });
+    g[k] = (base[k]||0)*2 + Math.max(0,extra);
+  });
+  // boolean keyword grants (e.g. a spell gave Taunt/Divine Shield): keep if base or any copy has it
+  ['taunt','shield','cleave','windfury','reborn','apex','suppress','reflect'].forEach(k=>{
+    g[k] = !!(base[k] || copies.some(c=>c[k]));
+  });
+  if(g.aura) g.aura = {tribe:g.aura.tribe, a:g.aura.a*2, h:g.aura.h*2};   // double auras too
+  return g;
+}
+// After any acquisition, fold three matching non-golden copies (across hand+board) into a Golden.
+function checkTriple(p){
+  const entries=[];
+  (p.hand||[]).forEach(m=>{ if(m && !m.spell && !m.golden) entries.push({m,zone:'hand'}); });
+  p.board.forEach(m=>{ if(m && !m.golden) entries.push({m,zone:'board'}); });
+  const groups={};
+  entries.forEach(x=>{ const id=x.m.def&&x.m.def.id; if(!id) return; (groups[id]=groups[id]||[]).push(x); });
+  for(const id in groups){
+    const g=groups[id];
+    if(g.length>=3){
+      const three=g.slice(0,3), set=new Set(three.map(x=>x.m));
+      const onBoard=three.some(x=>x.zone==='board');
+      let boardPos=null;
+      if(onBoard) three.forEach(x=>{ if(x.zone==='board'){ const i=p.board.indexOf(x.m); if(boardPos==null||i<boardPos) boardPos=i; } });
+      p.hand=(p.hand||[]).filter(m=>!set.has(m));
+      p.board=p.board.filter(m=>!set.has(m));
+      const golden=makeGolden(three.map(x=>x.m));
+      if(onBoard){ p.board.splice(Math.min(boardPos,p.board.length),0,golden); applyAuras(p.board); }
+      else p.hand.push(golden);
+      if(p.you){ log(`✦ Triple! ${golden.name} became Golden`,'sys'); toast('✦ Golden '+golden.name+'!'); }
+      offerDiscover(p);    // triple reward: discover a higher-tier minion
+      checkTriple(p);      // handle 6-of-a-kind etc.
+      return true;
+    }
+  }
+  return false;
+}
+
+/* ============================== DISCOVER (triple reward) ============================== */
+// Draw up to 3 distinct pool minions of the given tier (falls back to <=tier if scarce).
+function drawDiscoverChoices(tier){
+  const out=[];
+  for(let n=0;n<3;n++){
+    let elig=state.pool.map((d,i)=>({d,i})).filter(x=>x.d.t===tier);
+    if(!elig.length) elig=state.pool.map((d,i)=>({d,i})).filter(x=>x.d.t<=tier);
+    if(!elig.length) break;
+    const pick=elig[Math.floor(Math.random()*elig.length)];
+    state.pool.splice(pick.i,1); out.push(pick.d);
+  }
+  return out;
+}
+function discoverTier(p){ return Math.min(MAX_TIER, p.tier+1); }
+
+let discoverActive=false, discoverCtx=null;
+const discoverQueue=[];
+function offerDiscover(p){
+  if(!p.you){ aiDiscover(p); return; }
+  discoverQueue.push(discoverTier(p));
+  maybeShowDiscover();
+}
+function aiDiscover(p){
+  const choices=drawDiscoverChoices(discoverTier(p));
+  if(!choices.length) return;
+  let best=choices[0]; choices.forEach(d=>{ if(d.a+d.h>best.a+best.h) best=d; });
+  choices.forEach(d=>{ if(d!==best) returnToPool(d); });
+  (p.hand=p.hand||[]).push(mk(best));   // AI plays it from hand later
+}
+function maybeShowDiscover(){
+  if(discoverActive || !discoverQueue.length) return;
+  const tier=discoverQueue.shift();
+  const choices=drawDiscoverChoices(tier);
+  if(!choices.length){ maybeShowDiscover(); return; }
+  discoverActive=true;
+  discoverCtx={ choices, insts:choices.map(d=>mk(d)) };
+  const box=document.getElementById('discover');
+  box.querySelector('.discover-cards').innerHTML =
+    discoverCtx.insts.map((m,i)=>cardHTML(m,{idx:i,zone:'discover'})).join('');
+  box.querySelectorAll('.card').forEach(el=>{ el.onclick=()=>pickDiscover(+el.dataset.idx); });
+  box.classList.add('show');
+}
+function pickDiscover(i){
+  if(!discoverCtx) return;
+  const p=me();
+  (p.hand=p.hand||[]).push(discoverCtx.insts[i]);
+  discoverCtx.choices.forEach((d,j)=>{ if(j!==i) returnToPool(d); });   // unchosen go back to pool
+  log(`Discovered ${discoverCtx.insts[i].name}`,'you');
+  discoverCtx=null; discoverActive=false;
+  document.getElementById('discover').classList.remove('show');
+  checkTriple(p);          // a discovered copy can complete another triple
+  maybeShowDiscover();     // show the next queued discover, if any
+  render();
+}
+
+const AINAMES = ['Ragnaros','Jaina','Patches','Millhouse'];
+let state;
+function newGame(){
+  state = {
+    round:1, phase:'buy', pool:buildPool(), frozen:null,
+    sel:null, combatRunning:false,
+    players:[
+      {name:'You', you:true, dead:false, hp:MAX_HP, tier:1, gold:3, goldMax:3, board:[], hand:[], turnsSinceUp:0},
+      ...AINAMES.slice(0,3).map(n=>({name:n, you:false, dead:false, hp:MAX_HP, tier:1, gold:3, goldMax:3, board:[], hand:[], turnsSinceUp:0}))
+    ]
+  };
+  me().shop = [];
+  rollShop(me(), true);
+  startBuyPhase();
+}
+const me = ()=> state.players[0];
+const alive = ()=> state.players.filter(p=>!p.dead);
+
+/* ============================== POOL DRAW ============================== */
+function drawFromPool(maxTier){
+  const eligible = state.pool.map((d,i)=>({d,i})).filter(x=>x.d.t<=maxTier);
+  if(!eligible.length) return null;
+  const pick = eligible[Math.floor(Math.random()*eligible.length)];
+  state.pool.splice(pick.i,1);
+  return pick.d;
+}
+function returnToPool(def){ if(def) state.pool.push(def); }
+
+function rollShop(p, free){
+  if(p.shop) p.shop.forEach(c=>returnToPool(c.def));
+  const n = TIER_OFFERS[p.tier];
+  p.shop = [];
+  for(let i=0;i<n;i++){ const d=drawFromPool(p.tier); if(d) p.shop.push(mk(d)); }
+  maybeOfferSpell(p);
+  applyShopDiscounts(p);
+}
+// Roughly 40% of taverns offer one spell in place of a minion slot.
+function maybeOfferSpell(p){
+  if(!p.shop.length || Math.random()>=0.4) return;
+  const elig=SPELLS.filter(s=>s.tier<=p.tier);
+  if(!elig.length) return;
+  const def=elig[Math.floor(Math.random()*elig.length)];
+  const slot=Math.floor(Math.random()*p.shop.length);
+  returnToPool(p.shop[slot].def);            // return the minion this spell displaces
+  p.shop[slot]=mkSpell(def);
+}
+// Alchemist shop discounts: Transmuter (first minion slot -1), Elixir Master (random minion -3).
+function applyShopDiscounts(p){
+  if(!p.shop || !p.shop.length) return;
+  p.shop.forEach(c=>{ if(!c.spell) c.cost=3; });
+  if(p.board && p.board.some(m=>m.fx==='transmuter') && p.shop[0] && !p.shop[0].spell) p.shop[0].cost=Math.max(0,p.shop[0].cost-1);
+  if(p.board && p.board.some(m=>m.fx==='elixir')){
+    const mslots=p.shop.map((c,i)=>c.spell?-1:i).filter(i=>i>=0);
+    if(mslots.length){ const i=mslots[Math.floor(Math.random()*mslots.length)]; p.shop[i].cost=Math.max(0,p.shop[i].cost-3); }
+  }
+}
+
+/* ============================== BUY PHASE ============================== */
+function startBuyPhase(){
+  state.phase='buy';
+  state.players.forEach(p=>{
+    if(p.dead) return;
+    p.goldMax = Math.min(10, 2+state.round) + (p.goldBonus||0); // round1 -> 3 gold
+    p.gold = p.goldMax;
+    p.turnsSinceUp++;
+    // expire "this turn" buffs (Greenhorn's +2/+1 fresh-play bonus)
+    p.board.forEach(m=>{ if(m._fresh){ m.a-=2; m.h-=1; m.maxh-=1; m._fresh=false; } });
+  });
+  // start-of-turn keyword effects (Alchemists, etc.)
+  state.players.forEach(p=>{ if(p.dead) return; p.board.forEach(m=>{ if(m.fx && EFFECTS[m.fx] && EFFECTS[m.fx].startTurn) EFFECTS[m.fx].startTurn(p, m); }); });
+  // human shop: keep if frozen else reroll
+  if(state.frozen){ me().shop = state.frozen; state.frozen=null; }
+  else rollShop(me(), true);
+  state.sel=null;
+  render();
+  log(`— Round ${state.round}: Buy Phase (${me().gold} gold) —`,'sys');
+}
+
+function upgradeCost(p){
+  if(p.tier>=MAX_TIER) return Infinity;
+  // Real BG: full base cost on the turn you reach a tier, then −1 per turn you wait.
+  // turnsSinceUp is 1 on the arrival turn, so the discount is (turnsSinceUp − 1),
+  // clamped to ≥0 so the cost never rises above base (e.g. right after upgrading).
+  const discount = Math.max(0, p.turnsSinceUp - 1);
+  return Math.max(0, UPGRADE_BASE[p.tier+1] - discount);
+}
+
+// Buy a shop card into the hand (HS-style). Minions are played to the board later.
+function buyMinion(p, idx){
+  const c = p.shop[idx];
+  if(!c) return false;
+  const cost = (c.cost!=null) ? c.cost : 3;
+  if(p.gold<cost){ toast('Not enough gold'); return false; }
+  if((p.hand||[]).length>=HAND_MAX){ toast('Hand is full'); return false; }
+  p.gold-=cost; p.shop.splice(idx,1);
+  (p.hand=p.hand||[]).push(c);
+  if(!c.spell){
+    // "after you buy a minion" acquisition effects (Plunder, Quartermaster, Dread Captain, ...)
+    p.board.forEach(m=>{ if(m.plunder>0) m.a+=m.plunder; });
+    if(c.plunder>0) c.a+=c.plunder;
+    p.board.forEach(m=>{ if(m.fx && EFFECTS[m.fx] && EFFECTS[m.fx].onBuy) EFFECTS[m.fx].onBuy(p, m, c); });
+  }
+  if(p.you){ log(`Bought ${c.name}`,'you'); sfxBuy(); }
+  checkTriple(p);
+  return true;
+}
+// Play a minion from hand onto the board at pos. Battlecry fires here (twice if Golden).
+function playMinion(p, handIdx, pos){
+  const c = p.hand[handIdx];
+  if(!c || c.spell) return false;
+  if(p.board.length>=MAX_BOARD){ toast('Board is full'); return false; }
+  p.hand.splice(handIdx,1);
+  if(pos==null || pos>p.board.length) p.board.push(c); else p.board.splice(pos,0,c);
+  if(c.fx && EFFECTS[c.fx] && EFFECTS[c.fx].battlecry){
+    EFFECTS[c.fx].battlecry(p, c);
+    if(c.golden) EFFECTS[c.fx].battlecry(p, c);     // Golden battlecries trigger twice
+  }
+  applyAuras(p.board);
+  if(p.you) sfxPlace();
+  checkTriple(p);
+  return true;
+}
+// Convenience: buy a minion straight onto the board (used when dragging shop -> board).
+function buyAndPlay(p, shopIdx, pos){
+  const c = p.shop[shopIdx];
+  const wasSpell = c && c.spell;
+  const before = (p.hand||[]).length;
+  if(!buyMinion(p, shopIdx)) return false;
+  if(wasSpell) return true;                          // spells stay in hand to be cast
+  if(p.hand.length>before) playMinion(p, p.hand.length-1, pos);  // not consumed by a triple
+  return true;
+}
+// Cast a spell from hand. Friendly-target spells need a board minion in target.
+function playSpell(p, handIdx, target){
+  const s = p.hand[handIdx];
+  if(!s || !s.spell) return false;
+  if(s.target==='friendly'){
+    if(!target){ toast('Drag the spell onto one of your minions'); return false; }
+    s.cast(p, target);
+  } else s.cast(p);
+  p.hand.splice(handIdx,1);
+  applyAuras(p.board);
+  if(p.you) log(`Cast ${s.name}`,'you');
+  return true;
+}
+function moveMinion(from, to){
+  const b=me().board;
+  if(from===to || from===to-1) return; // no-op
+  const [m]=b.splice(from,1);
+  if(from<to) to--;
+  if(to>b.length) to=b.length;
+  b.splice(to,0,m);
+  applyAuras(b);
+  state.sel=to;
+}
+function sellMinion(p, idx){
+  const c=p.board[idx];
+  if(c.tribe==='Titans'){ const dbl=p.board.some(m=>m.fx==='singularity')?2:1;        // Apex: +2/+2 per Titan sold (Singularity doubles)
+    p.board.forEach(m=>{ if(m!==c && m.apex){ m.a+=2*dbl; m.h+=2*dbl; m.maxh+=2*dbl; } }); }
+  p.board.forEach(m=>{ if(m!==c && m.fx && EFFECTS[m.fx] && EFFECTS[m.fx].onSell) EFFECTS[m.fx].onSell(p, m, c); });
+  p.gold=Math.min(10,p.gold+1);
+  p.board.splice(idx,1);
+  returnToPool(c.def);
+  applyAuras(p.board);
+  if(p.you){ log(`Sold ${c.name} (+1g)`,'you'); sfxSell(); }
+}
+function doUpgrade(p){
+  const cost=upgradeCost(p);
+  if(p.tier>=MAX_TIER){ toast('Max tier'); return; }
+  if(p.gold<cost){ toast('Not enough gold'); return; }
+  p.gold-=cost; p.tier++; p.turnsSinceUp=0;
+  if(p.you) log(`Upgraded to Tavern Tier ${p.tier}`,'you');
+}
+function doRoll(p){
+  if(p._freeRefresh){ p._freeRefresh=false; rollShop(p); if(p.you) log('Refreshed tavern (free)','you'); return; }
+  if(p.gold<1){ toast('Not enough gold'); return; }
+  p.gold-=1; rollShop(p);
+  if(p.you) log('Refreshed tavern','you');
+}
+
+/* auras: recompute bonuses from aura minions each change */
+function applyAuras(board){
+  board.forEach(m=>{ if(m._aA){ m.a-=m._aA; m._aA=0;} if(m._aH){ m.h-=m._aH; m.maxh-=m._aH; m._aH=0;} });
+  board.forEach(src=>{
+    if(!src.aura) return;
+    board.forEach(m=>{
+      if(m!==src && (src.aura.tribe==='all'||m.tribe===src.aura.tribe)){
+        m.a+=src.aura.a; m._aA=(m._aA||0)+src.aura.a;
+        m.h+=src.aura.h; m.maxh+=src.aura.h; m._aH=(m._aH||0)+src.aura.h;
+      }
+    });
+  });
+}
+function buffTribe(board,tribe,a,h,who){
+  let n=0; board.forEach(m=>{ if(m.tribe===tribe){ m.a+=a; m.h+=h; m.maxh+=h; n++; }});
+  if(n) log(`${who}: buffed ${n} ${tribe}s +${a}/+${h}`,'you');
+}
+
+/* ============================== AI BUY ============================== */
+// AI ignores spells when valuing shop slots (won't pick them).
+function shopVal(c){ return c.spell ? -1 : c.a+c.h+(c.taunt?1:0)+(c.shield?2:0); }
+// Buy a card to hand then immediately resolve the hand (play minions, cast simple spells).
+function aiBuyPlay(p, idx){
+  if(!buyMinion(p, idx)) return false;
+  aiResolveHand(p);
+  return true;
+}
+function aiResolveHand(p){
+  let guard=0;
+  while(p.hand && p.hand.length && guard++<30){
+    const c=p.hand[0];
+    if(c.spell){
+      if(c.target==='none') playSpell(p,0,null);
+      else if(p.board.length) playSpell(p,0,p.board[Math.floor(Math.random()*p.board.length)]);
+      else break;                                   // no target available; leave it
+    } else {
+      if(p.board.length<MAX_BOARD) playMinion(p,0,p.board.length);
+      else break;                                   // board full; keep in hand
+    }
+  }
+}
+function aiTakeTurn(p){
+  if(!p.shop) rollShop(p, true);
+  // try upgrade early when affordable and low tier
+  if(p.tier<MAX_TIER && p.gold>=upgradeCost(p) && (p.board.length>=3) && Math.random()<0.5 && state.round>=2){
+    doUpgrade(p);
+  }
+  let guard=0;
+  while(p.gold>=3 && guard++<20){
+    if(p.board.length<MAX_BOARD){
+      // buy best available minion (highest stats)
+      if(p.shop.length===0){ if(p.gold>=1) doRoll(p); else break; continue; }
+      let best=-1,bi=-1;
+      p.shop.forEach((c,i)=>{ const v=shopVal(c); if(v>best){best=v;bi=i;} });
+      if(bi>=0 && best>=0) aiBuyPlay(p,bi); else break;
+    } else {
+      // board full: sell weakest if a shop minion is clearly better, else stop
+      if(p.shop.length){
+        let bestShop=-1,si=-1; p.shop.forEach((c,i)=>{const v=shopVal(c);if(v>bestShop){bestShop=v;si=i;}});
+        let worst=999,wi=-1; p.board.forEach((c,i)=>{const v=c.a+c.h;if(v<worst){worst=v;wi=i;}});
+        if(si>=0 && bestShop>worst+2 && p.gold>=3){ sellMinion(p,wi); aiBuyPlay(p,si); }
+        else break;
+      } else break;
+    }
+  }
+  aiResolveHand(p);   // play anything still sitting in hand
+  // spend leftover gold on a roll occasionally
+  if(p.gold>=1 && p.board.length<MAX_BOARD && Math.random()<0.3){ doRoll(p); aiTakeTurn(p); }
+}
+
+/* ============================== COMBAT ============================== */
+function cloneBoard(board){
+  return board.map(m=>({id:m.id,name:m.name,a:m.a,h:m.h,maxh:m.maxh,tribe:m.tribe,t:m.t,
+    taunt:!!m.taunt,shield:!!m.shield,cleave:!!m.cleave,windfury:!!m.windfury,reborn:!!m.reborn,
+    bulwark:m.bulwark||0,bulwark0:m.bulwark||0,shield0:!!m.shield,kindle:m.kindle||0,haunt:m.haunt||0,
+    toxinApply:m.toxinApply||0,poison:0,suppress:!!m.suppress,apex:!!m.apex,brood:m.brood||0,
+    reflect:!!m.reflect,fx:m.fx||null,reborned:false,gainedAtk:0,_pos:null}));
+}
+function mkToken(def){
+  const k=def.keywords||{};
+  return {id:uid++,name:def.name,a:def.atk,h:def.health,maxh:def.health,tribe:def.tribe,t:def.tier||1,
+    taunt:!!k.taunt,shield:!!k.divineShield,cleave:!!k.cleave,windfury:!!k.windfury,reborn:!!k.reborn,
+    bulwark:k.bulwark||0,bulwark0:k.bulwark||0,shield0:!!k.divineShield,kindle:k.kindle||0,haunt:k.haunt||0,
+    toxinApply:k.toxin||0,poison:0,suppress:!!k.suppress,apex:!!k.apex,brood:k.brood||0,
+    fx:k.fx||null,reborned:false,gainedAtk:0,_pos:null};
+}
+function callFx(m,hook,a){ if(m&&m.fx&&EFFECTS[m.fx]&&EFFECTS[m.fx][hook]) EFFECTS[m.fx][hook](a); }
+function perma(ctx,m,da,dh){ const e=ctx.perma[m.id]||(ctx.perma[m.id]={a:0,h:0}); e.a+=da; e.h+=dh; }
+function countKw(m){ let n=0; ['taunt','shield','cleave','windfury','reborn','suppress','apex'].forEach(k=>{if(m[k])n++;});
+  ['bulwark','kindle','haunt','toxinApply','brood'].forEach(k=>{if(m[k]>0)n++;}); if(m.fx)n++; return n; }
+function stripKeywords(m, mSide, bySide){
+  if(mSide && mSide.some(x=>x.fx==='aegis')) return;
+  m.taunt=false;m.shield=false;m.cleave=false;m.windfury=false;m.reborn=false;
+  m.bulwark=0;m.kindle=0;m.haunt=0;m.toxinApply=0;m.apex=false;m.brood=0;m.suppress=false;m.reflect=false;m.fx=null;
+  if(bySide) bySide.forEach(s=>{ if(s.fx==='nullsovereign'){ const al=bySide.filter(x=>x.h>0); if(al.length){ const t=al[Math.floor(Math.random()*al.length)]; t.a+=2; t.h+=2; t.maxh+=2; } } });  // Null Sovereign
+}
+function summon(side, def, near, ctx){
+  if(side.length>=7) return null;
+  const m=mkToken(def);
+  let idx = near && near._pos!=null ? near._pos : side.length;
+  side.splice(Math.min(idx,side.length),0,m);
+  if(ctx){ ctx.summons[ctx.key(side)]++; side.forEach(a=>{ if(a!==m) callFx(a,'onSummon',{ctx,self:a,token:m,side}); }); }
+  return m;
+}
+function applySuppress(side, foe){
+  side.forEach((m,i)=>{ if(m.suppress){ [foe[i-1],foe[i],foe[i+1]].forEach(e=>{ if(e) stripKeywords(e,foe,side); }); }});
+}
+function triggerKindle(att, mineArr){
+  mineArr.forEach(a=>{
+    if(a.fx==='bellows' && a!==att){ att.a+=1; }
+    if(a!==att && a.kindle>0 && a.h>0){
+      a.a+=a.kindle; a.gainedAtk+=a.kindle;
+      if(a.fx==='sunshatter'){ a.h+=a.kindle; a.maxh+=a.kindle; }
+      if(a.fx==='forgekeeper'){ const o=mineArr.filter(x=>x!==a&&x.tribe==='Embers'&&x.h>0); if(o.length){ const t=o[Math.floor(Math.random()*o.length)]; t.a+=a.kindle; t.gainedAtk+=a.kindle; } }
+    }
+  });
+}
+function tickPoison(m, mineArr, ctx){
+  const foe=ctx.foe(mineArr);
+  let dmg=m.poison; if(foe.some(x=>x.fx==='decayengine')) dmg*=2;
+  m.h-=dmg; ctx.events.push({type:'hit',id:m.id,h:m.h,dmg,poison:true});
+  foe.forEach(x=>{ if(x.fx==='fungalbrute') x.a+=1; });
+  cleanupBoards(ctx);
+}
+function runDeathrattle(m, side, foe, which, ctx){
+  if(m.brood>0){ for(let i=0;i<m.brood;i++) summon(side,{name:'Swarmling',atk:1,health:1,tribe:'Swarm'},m,ctx); }
+  callFx(m,'deathrattle',{ctx,self:m,side,foe,which});
+}
+function cleanupBoards(ctx){
+  ['top','bot'].forEach(which=>{
+    const side=which==='top'?ctx.top:ctx.bot;
+    const foe=which==='top'?ctx.bot:ctx.top;
+    for(let i=side.length-1;i>=0;i--){
+      const m=side[i]; if(m.h>0) continue;
+      if(m.fx==='gigaton' && !m.gigatonUsed){ m.gigatonUsed=true; m.h=1; ctx.events.push({type:'hit',id:m.id,h:1,dmg:0}); continue; } // survive at 1 HP — emit event so the animation snaps back up
+      const diedPoisoned=m.poison>0;
+      m._pos=i; side.splice(i,1);
+      ctx.events.push({type:'death',id:m.id,side:which});
+      ctx.deaths[which]++;
+      side.forEach(a=>{ if(a.haunt>0) a.a+=a.haunt; });                       // Haunt
+      side.slice().forEach(a=>callFx(a,'allyDeath',{ctx,self:a,dead:m,mine:side,foe,which}));
+      if(diedPoisoned){ ctx.toxinDeaths[which]++; foe.slice().forEach(s=>callFx(s,'toxinDeath',{ctx,self:s,dead:m,mine:foe,foe:side})); }
+      const inqAlive = foe.some(x=>x.fx==='inquisitor' && x.h>0);
+      if(!inqAlive){ const times = side.some(a=>a.fx==='necrolord') ? 2 : 1; for(let r=0;r<times;r++) runDeathrattle(m, side, foe, which, ctx); }
+      if(m.reborn && !m.reborned){
+        const rb=Object.assign({},m); rb.id=uid++; rb.reborned=true; rb.poison=0;
+        rb.h=(m.fx==='phoenix')?m.maxh:1; rb.bulwark=m.bulwark0||0; rb.bulwarkBroke=false; rb.shield=m.shield0||false; rb.gigatonUsed=false;
+        side.splice(Math.min(m._pos,side.length),0,rb); ctx.events.push({type:'summon',side:which});
+        side.forEach(a=>{ if(a!==rb) callFx(a,'onSummon',{ctx,self:a,token:rb,side}); });
+      }
+      ctx.lastDead[which]={name:m.name,a:m.a,maxh:m.maxh,tribe:m.tribe};
+    }
+  });
+  if((ctx.top.some(m=>m.h<=0)||ctx.bot.some(m=>m.h<=0)) && (ctx._cd=(ctx._cd||0))<60){ ctx._cd++; cleanupBoards(ctx); ctx._cd--; }
+}
+function dealDamage(m, amount, sideArr, ctx, source){
+  if(!m || amount<=0 || m.h<=0) return;
+  if(m.shield){ m.shield=false; ctx.events.push({type:'shieldpop',id:m.id}); return; }
+  if(m.bulwark>0){
+    const absorbed=Math.min(m.bulwark,amount); m.bulwark-=absorbed; amount-=absorbed;
+    if(absorbed>0){
+      if(m.fx==='quartz') m.a+=1;
+      if(m.fx==='magma'){ const foe=ctx.foe(sideArr); if(foe.length){ dealDamage(foe[Math.floor(Math.random()*foe.length)],absorbed,foe,ctx,m); } }
+    }
+    if(m.bulwark===0 && !m.bulwarkBroke){
+      m.bulwarkBroke=true;
+      if(m.fx==='worldcore' && !m.worldRefreshed){ m.worldRefreshed=true; m.bulwark=m.a; m.bulwarkBroke=false; }
+      else if(m.fx==='unbroken'){ const foe=ctx.foe(sideArr); foe.slice().forEach(e=>dealDamage(e,8,foe,ctx,m)); }
+    }
+    if(amount<=0) return; // fully absorbed: no HP damage, no Toxin contact
+  }
+  m.h-=amount; ctx.events.push({type:'hit',id:m.id,h:m.h,dmg:amount});
+  if(source && source.toxinApply>0 && !(m.fx==='adamant' && m.bulwark>0)){
+    if(!(sideArr && sideArr.some(x=>x.fx==='aegis'))){
+      m.poison += source.toxinApply;
+      ctx.foe(sideArr).forEach(x=>{ if(x.fx==='cultivator'){ x.a++; x.h++; x.maxh++; } });  // Cultivator
+    }
+  }
+}
+
+// returns {events, result, dmg, finalTop, finalBot, perma}
+function simulate(topBoard, botBoard, topTier, botTier, topP, botP){
+  const top=cloneBoard(topBoard), bot=cloneBoard(botBoard);
+  const events=[];
+  const ctx={top,bot,events,perma:{},lastDead:{top:null,bot:null},
+    summons:{top:0,bot:0},deaths:{top:0,bot:0},toxinDeaths:{top:0,bot:0},
+    tierOf:{top:topTier,bot:botTier},playerOf:{top:topP||null,bot:botP||null}};
+  ctx.key=(arr)=>arr===top?'top':'bot';
+  ctx.foe=(arr)=>arr===top?bot:top;
+
+  // ----- start of combat -----
+  resolveReflectTribes(top); resolveReflectTribes(bot);   // Mirrors count as a real tribe in combat
+  applySuppress(top,bot); applySuppress(bot,top);
+  // Warden pre-pass: counterspell / sentinel neutralise enemy start-of-combat effects
+  ['top','bot'].forEach(which=>{ const side=which==='top'?top:bot, foe=which==='top'?bot:top;
+    side.forEach(m=>{
+      if(m.fx==='counterspell') foe.forEach(e=>{ if(e.fx&&EFFECTS[e.fx]&&EFFECTS[e.fx].startCombat&&e.a<m.a) e._noStart=true; });
+      if(m.fx==='sentinel'){ const t=foe.filter(e=>e.fx&&EFFECTS[e.fx]&&EFFECTS[e.fx].startCombat&&!e._noStart).sort((x,y)=>y.a-x.a)[0];
+        if(t){ t._noStart=true; EFFECTS[t.fx].startCombat({ctx,self:m,mine:side,foe,which}); } }
+    });
+  });
+  ['top','bot'].forEach(which=>{ const side=which==='top'?top:bot, foe=which==='top'?bot:top;
+    side.slice().forEach(m=>{ if(!m._noStart) callFx(m,'startCombat',{ctx,self:m,mine:side,foe,which}); }); });
+  cleanupBoards(ctx);
+
+  let turn = top.length>bot.length?'top':bot.length>top.length?'bot':(Math.random()<.5?'top':'bot');
+  let attIdx={top:0,bot:0}, guard=0;
+
+  function targets(def){ const t=def.filter(m=>m.taunt); return t.length?t:def; }
+  function doStrike(att, attArr, defArr){
+    if(!att||att.h<=0||!defArr.length) return;
+    const tgts=targets(defArr); const tgt=tgts[Math.floor(Math.random()*tgts.length)];
+    const di=defArr.indexOf(tgt);
+    events.push({type:'attack',att:att.id,def:tgt.id});
+    dealDamage(tgt, att.a, defArr, ctx, att);
+    dealDamage(att, tgt.a, attArr, ctx, tgt);
+    if(att.cleave){ [defArr[di-1],defArr[di+1]].forEach(n=>{ if(n) dealDamage(n,att.a,defArr,ctx,att); }); }
+    if(att.tribe==='Embers') triggerKindle(att, attArr);
+    callFx(att,'onAttack',{ctx,self:att,mine:attArr,foe:defArr,target:tgt});
+    cleanupBoards(ctx);
+  }
+
+  while(top.length && bot.length && guard++<400){
+    const attArr=turn==='top'?top:bot, defArr=turn==='top'?bot:top;
+    if(attArr.length && defArr.length){
+      if(attIdx[turn]>=attArr.length) attIdx[turn]=0;
+      const att=attArr[attIdx[turn]];
+      if(att && att.a>0 && att.h>0){
+        if(att.poison>0) tickPoison(att, attArr, ctx);
+        if(att.h>0 && defArr.length){
+          doStrike(att, attArr, defArr);
+          if(att.windfury && att.h>0 && defArr.length) doStrike(att, attArr, defArr);
+        }
+      }
+      attIdx[turn]++;
+    }
+    turn = turn==='top'?'bot':'top';
+  }
+
+  ['top','bot'].forEach(which=>{ const side=which==='top'?top:bot, foe=which==='top'?bot:top;
+    side.slice().forEach(m=>callFx(m,'endCombat',{ctx,self:m,mine:side,foe,which})); });
+
+  let result, dmg=0;
+  if(top.length && !bot.length){ result='top'; dmg=topTier + top.reduce((s,m)=>s+m.t,0); }
+  else if(bot.length && !top.length){ result='bot'; dmg=botTier + bot.reduce((s,m)=>s+m.t,0); }
+  else result='tie';
+  return {events, result, dmg, finalTop:top, finalBot:bot, perma:ctx.perma};
+}
+
+/* ----- Mirrors helpers ----- */
+// On a combat clone, rewrite each Reflect minion's tribe to the tribe it mirrors,
+// so every tribe-synergy check in the engine treats it as that tribe.
+function resolveReflectTribes(board){
+  board.forEach((m,i)=>{
+    let mirror=null;
+    if(m.fx==='prism'||m.fx==='infinite'){            // "all tribes" -> join the biggest package
+      const c={}; board.forEach(x=>{ if(x!==m && x.tribe!=='Mirrors') c[x.tribe]=(c[x.tribe]||0)+1; });
+      mirror=Object.keys(c).sort((a,b)=>c[b]-c[a])[0]||null;
+    } else if(m.reflect){
+      const L=board[i-1]; mirror=L?L.tribe:null;
+      if(m.fx==='mimic'){ const R=board[i+1]; if((!mirror||mirror==='Mirrors')&&R) mirror=R.tribe; }
+    }
+    if(mirror && mirror!=='Mirrors') m.tribe=mirror;
+  });
+}
+// Copy keyword fields (not stats) from src onto dst; optionally adopt src's fx hook.
+function copyKeywords(dst, src, withFx){
+  ['taunt','shield','cleave','windfury','reborn','suppress','apex'].forEach(k=>{ if(src[k]) dst[k]=true; });
+  ['bulwark','kindle','haunt','toxinApply','brood','plunder'].forEach(k=>{ if(src[k]>0) dst[k]=Math.max(dst[k]||0,src[k]); });
+  dst.bulwark0=dst.bulwark||0; dst.shield0=!!dst.shield;
+  if(withFx && src.fx) dst.fx=src.fx;
+}
+function strongestKwSource(board, self){
+  const cand=board.filter(m=>m!==self && countKw(m)>0).sort((x,y)=>(y.a+y.h)-(x.a+x.h));
+  return cand[0]||null;
+}
+
+/* ============================== KEYWORD EFFECTS ============================== */
+// Tractable per-card effects. Generic keywords (Toxin/Bulwark/Kindle/Haunt/Plunder/
+// Apex/Brood/Windfury/Reborn/Suppress/Cleave/Taunt/Shield) are handled in the engine above.
+const EFFECTS = {
+  // ----- Spores -----
+  cultivator:{},                       // triggered inline in dealDamage (Toxin application)
+  rotweaver:{ toxinDeath:(a)=>{ const e=a.foe.filter(m=>m.h>0); if(e.length){ dealDamage(e[Math.floor(Math.random()*e.length)],2,a.foe,a.ctx,null); } } },
+  sporemother:{ startCombat:(a)=>{ a.mine.forEach(m=>{ if(m!==a.self) m.toxinApply=(m.toxinApply||0)+1; }); } }, // simplified: whole combat
+  plaguelord:{ onAttack:(a)=>{ const d=a.foe, ti=d.indexOf(a.target); [d[ti-1],d[ti+1]].forEach(n=>{ if(n) n.poison+=a.self.toxinApply; }); } },
+  fungalbrute:{},                      // +1 atk per Toxin tick handled in tickPoison
+  decayengine:{},                      // doubles enemy Toxin ticks, handled in tickPoison
+  mycelialqueen:{ deathrattle:(a)=>{ const e=a.foe.filter(m=>m.h>0).sort((x,y)=>y.h-x.h); if(e.length) e[0].poison+=3; } },
+  thewilting:{ toxinDeath:(a)=>{ const e=a.foe.filter(m=>m.h>0); if(e.length && a.dead.poison>0) e[Math.floor(Math.random()*e.length)].poison+=a.dead.poison; } },
+  eternalrot:{ endCombat:(a)=>{ const n=a.ctx.toxinDeaths[a.which==='top'?'bot':'top']||0; if(n>0) perma(a.ctx,a.self,n,n); } },
+  // ----- Embers -----
+  tinder:{ battlecry:(p,self)=>{ const e=p.board.filter(m=>m!==self&&m.tribe==='Embers'); if(e.length) e[Math.floor(Math.random()*e.length)].kindle=(e[0].kindle||0)+1; } },
+  bellows:{},                          // reacts in triggerKindle
+  forgekeeper:{},                      // shares Kindle in triggerKindle
+  conflagar:{ startCombat:(a)=>{ a.mine.forEach(m=>{ if(m.tribe==='Embers') m.kindle=(m.kindle||0)+1; }); } },
+  phoenix:{},                          // Reborn at full health handled in cleanup
+  infernocore:{ onAttack:(a)=>{ a.mine.forEach(m=>{ if(m!==a.self&&m.kindle>0&&m.h>0){ m.a+=m.kindle; m.gainedAtk+=m.kindle; } }); } },
+  eternalflame:{ endCombat:(a)=>{ const keep=Math.floor((a.self.gainedAtk||0)/2); if(keep>0) perma(a.ctx,a.self,keep,0); } },
+  sunshatter:{},                       // Kindle adds health in triggerKindle
+  // ----- Swarm -----
+  hatchmother:{ startCombat:(a)=>summon(a.mine,{name:'Swarmling',atk:1,health:1,tribe:'Swarm'},null,a.ctx) },
+  dronecaptain:{ onSummon:(a)=>{ if(a.token.tribe==='Swarm'){ a.token.a++; a.token.h++; a.token.maxh++; } } },
+  hivelord:{ allyDeath:(a)=>{ if(a.dead.tribe==='Swarm') a.mine.forEach(m=>{ if(m.tribe==='Swarm') m.a++; }); } },
+  eggsac:{ deathrattle:(a)=>{ summon(a.side,{name:'Swarmling',atk:2,health:2,tribe:'Swarm'},a.self,a.ctx); summon(a.side,{name:'Swarmling',atk:2,health:2,tribe:'Swarm'},a.self,a.ctx); } },
+  broodqueen:{ onSummon:(a)=>{ if(a.token.tribe==='Swarm'){ a.token.a++; a.token.h++; a.token.maxh++; } } },
+  swarmguard:{ onSummon:(a)=>{ a.self._sg=a.self._sg||0; if(a.token.tribe==='Swarm'&&a.self._sg<3){ a.token.shield=true; a.self._sg++; } } },
+  greathive:{ startCombat:(a)=>{ const n=a.mine.filter(m=>m.tribe==='Swarm').length; for(let i=0;i<n;i++){ if(a.mine.length>=7) break; summon(a.mine,{name:'Swarmling',atk:1,health:1,tribe:'Swarm'},null,a.ctx);} } },
+  overmind:{ onSummon:(a)=>{ if(a.token.tribe==='Swarm'&&a.token.maxh<=2){ a.token.a=Math.max(a.token.a,3); a.token.h=3; a.token.maxh=3; } } },
+  endlessbrood:{ allyDeath:(a)=>{ if(a.dead.tribe==='Swarm'&&!a.dead._nr){ const t=summon(a.mine,{name:'Swarmling',atk:1,health:1,tribe:'Swarm'},a.dead,a.ctx); if(t) t._nr=true; } } },
+  apexswarm:{ allyDeath:(a)=>{ if(a.dead.tribe==='Swarm'&&!a.dead._nr){ const t=summon(a.mine,{name:'Swarmling',atk:1,health:1,tribe:'Swarm'},a.dead,a.ctx); if(t) t._nr=true; } } },
+  // ----- Golems -----
+  wardstone:{ deathrattle:(a)=>{ const al=a.side.filter(m=>m.h>0); if(al.length) al[Math.floor(Math.random()*al.length)].bulwark+=3; } },
+  reinforcer:{ startCombat:(a)=>{ const al=a.mine.filter(m=>m!==a.self); const t=al.length?al:a.mine; if(t.length) t[Math.floor(Math.random()*t.length)].bulwark+=3; } },
+  quartz:{},                           // +1 atk on Bulwark absorb handled in dealDamage
+  anvilback:{ startCombat:(a)=>{ const i=a.mine.indexOf(a.self); [a.mine[i-1],a.mine[i+1]].forEach(n=>{ if(n) n.bulwark+=2; }); } },
+  magma:{},                            // reflect absorbed damage handled in dealDamage
+  adamant:{},                          // Toxin immunity while Bulwark holds handled in dealDamage
+  geode:{ deathrattle:(a)=>{ a.side.forEach(m=>{ if(m.h>0) m.bulwark+=3; }); } },
+  unbroken:{},                         // AoE on Bulwark break handled in dealDamage
+  worldcore:{ startCombat:(a)=>{ a.self.bulwark=a.self.a; a.self.bulwark0=a.self.a; } },
+  // ----- Phantoms -----
+  wisp:{ deathrattle:(a)=>{ const al=a.side.filter(m=>m.h>0); if(al.length){ const t=al[Math.floor(Math.random()*al.length)]; t.a++; t.h++; t.maxh++; } } },
+  gravecaller:{ deathrattle:(a)=>{ summon(a.side,{name:'Phantom',atk:2,health:2,tribe:'Phantoms',keywords:{haunt:1}},a.self,a.ctx); } },
+  soulbinder:{ allyDeath:(a)=>{ const e=a.foe.filter(m=>m.h>0); if(e.length) dealDamage(e[Math.floor(Math.random()*e.length)],1,a.foe,a.ctx,null); } },
+  mourncaller:{ allyDeath:(a)=>{ const al=a.mine.filter(m=>m.h>0); if(al.length) al[Math.floor(Math.random()*al.length)].a+=a.dead.a; } },
+  necrolord:{},                        // Deathrattle doubling handled in cleanup
+  banshee:{ deathrattle:(a)=>{ summon(a.side,{name:'Phantom',atk:3,health:3,tribe:'Phantoms'},a.self,a.ctx); summon(a.side,{name:'Phantom',atk:3,health:3,tribe:'Phantoms'},a.self,a.ctx); } },
+  soulengine:{ allyDeath:(a)=>{ if(!a.dead._nr){ const t=summon(a.mine,{name:'Phantom',atk:2,health:2,tribe:'Phantoms'},a.dead,a.ctx); if(t) t._nr=true; } } },
+  gravetitan:{ deathrattle:(a)=>{ const ld=a.ctx.lastDead[a.which]; if(ld) summon(a.side,{name:ld.name,atk:Math.max(1,ld.a),health:Math.max(1,ld.maxh),tribe:ld.tribe},a.self,a.ctx); } },
+  reckoning:{ endCombat:(a)=>{ const n=a.ctx.deaths[a.which]||0; if(n>0) perma(a.ctx,a.self,n,n); } },
+  // ----- Raiders -----
+  lookout:{ onBuy:(p,self)=>{ const r=p.board.filter(m=>m.tribe==='Raiders'); if(r.length) r[Math.floor(Math.random()*r.length)].a++; } },
+  quartermaster:{ onBuy:(p,self)=>{ self.a++; self.h++; self.maxh++; } },
+  firstmate:{ startCombat:(a)=>{ const e=a.foe.filter(m=>m.h>0); if(e.length){ const t=e[Math.floor(Math.random()*e.length)]; a.ctx.events.push({type:'attack',att:a.self.id,def:t.id}); dealDamage(t,a.self.a,a.foe,a.ctx,a.self); dealDamage(a.self,t.a,a.mine,a.ctx,t); cleanupBoards(a.ctx);} } },
+  cannoneer:{ startCombat:(a)=>{ const e=a.foe.filter(m=>m.h>0); if(e.length){ dealDamage(e[Math.floor(Math.random()*e.length)],a.self.a,a.foe,a.ctx,a.self); cleanupBoards(a.ctx);} } },
+  dreadcaptain:{ onBuy:(p,self)=>{ p.board.forEach(m=>{ if(m!==self&&m.tribe==='Raiders') m.a++; }); } },
+  boardingparty:{ battlecry:(p,self)=>{ p.board.forEach(m=>{ if(m.tribe==='Raiders') m.a+=2; }); } },
+  flagship:{ startCombat:(a)=>{ const r=a.mine.filter(m=>m.tribe==='Raiders'); if(r.length){ r.sort((x,y)=>y.a-x.a); r[0].windfury=true; } } },
+  blackfleet:{ onBuy:(p,self)=>{ const r=p.board.filter(m=>m.tribe==='Raiders'); if(r.length) r[Math.floor(Math.random()*r.length)].a+=4; } },
+  krakenlord:{ startCombat:(a)=>{ const e=a.foe.filter(m=>m.h>0); if(!e.length) return; const each=Math.max(1,Math.floor(a.self.a/e.length)); e.forEach(t=>dealDamage(t,each,a.foe,a.ctx,a.self)); cleanupBoards(a.ctx); } },
+  // ----- Mirrors (simple ones; copy/clone effects are stubbed) -----
+  echoling:{ battlecry:(p,self)=>{ const i=p.board.indexOf(self); let n=0; if(p.board[i-1])n++; if(p.board[i+1])n++; self.a+=n; self.h+=n; self.maxh+=n; } },
+  twinfate:{ battlecry:(p,self)=>{ if(p.board.length>=MAX_BOARD) return; const i=p.board.indexOf(self); const nb=[p.board[i-1],p.board[i+1]].filter(Boolean); if(nb.length){ const src=nb[Math.floor(Math.random()*nb.length)]; p.board.splice(i+1,0,mk(src.def)); applyAuras(p.board); } } },
+  mimic:{}, prism:{}, infinite:{},     // Reflect tribe-counting handled in resolveReflectTribes
+  glassshard:{ battlecry:(p,self)=>{ const i=p.board.indexOf(self); const nb=[p.board[i-1],p.board[i+1]].filter(m=>m&&countKw(m)>0); if(nb.length) copyKeywords(self, nb[Math.floor(Math.random()*nb.length)], false); } },
+  reflection:{ battlecry:(p,self)=>{ const i=p.board.indexOf(self); const L=p.board[i-1]; if(L) copyKeywords(self, L, true); } },
+  doppel:{ startCombat:(a)=>{ const al=a.mine.filter(m=>m!==a.self&&countKw(m)>0); if(al.length) copyKeywords(a.self, al[Math.floor(Math.random()*al.length)], false); } },
+  kaleidos:{ startCombat:(a)=>{ const s=strongestKwSource(a.mine,a.self); if(s) copyKeywords(a.self, s, false); } },
+  hallofmirrors:{ startCombat:(a)=>{ a.mine.forEach(m=>{ if(m!==a.self&&m.reflect){ m.a+=2; m.h+=2; m.maxh+=2; } }); } }, // "count double" -> +2/+2
+  perfectmirror:{ battlecry:(p,self)=>{ const i=p.board.indexOf(self);
+    [p.board[i-1],p.board[i+1]].forEach(nb=>{ if(nb&&nb.fx&&EFFECTS[nb.fx]&&EFFECTS[nb.fx].battlecry) EFFECTS[nb.fx].battlecry(p,self); });
+    const dr=[p.board[i-1],p.board[i+1]].find(nb=>nb&&nb.fx&&EFFECTS[nb.fx]&&EFFECTS[nb.fx].deathrattle); if(dr) self.fx=dr.fx; } },
+  // ----- Wardens -----
+  dampener:{ startCombat:(a)=>{ const e=a.foe.filter(m=>m.h>0); if(e.length) stripKeywords(e[Math.floor(Math.random()*e.length)],a.foe,a.mine); } },
+  hexward:{ startCombat:(a)=>{ const e=a.foe.filter(m=>m.h>0).sort((x,y)=>countKw(y)-countKw(x)); if(e.length) stripKeywords(e[0],a.foe,a.mine); } },
+  aegis:{},                            // Toxin/Suppress immunity checked in dealDamage / stripKeywords
+  voidwarden:{ startCombat:(a)=>{ a.foe.slice().forEach(e=>stripKeywords(e,a.foe,a.mine)); } },
+  thesilence:{ startCombat:(a)=>{ a.foe.slice().forEach(e=>stripKeywords(e,a.foe,a.mine)); } },
+  inquisitor:{},                       // disables enemy Deathrattles (checked in cleanup)
+  counterspell:{},                     // neutralises weaker enemy start-of-combat effects (pre-pass)
+  sentinel:{},                         // copies & cancels strongest enemy start-of-combat effect (pre-pass)
+  mutecolossus:{ startCombat:(a)=>{ a.foe.forEach(e=>{ e.kindle=0; e.haunt=0; }); } }, // enemies can't grow in combat (simplified)
+  nullsovereign:{},                    // +2/+2 to a friendly per enemy keyword suppressed (in stripKeywords)
+  // ----- Alchemists -----
+  coinimp:{ battlecry:(p)=>gainGold(p,1) },
+  goldwright:{ battlecry:(p)=>gainGold(p,p.gold>=6?2:1) },
+  catalyst:{},                         // boosts gold gains (checked in gainGold)
+  philosopher:{ endTurn:(p,self)=>{ const g=p.gold; if(g>0){ self.a+=g; self.h+=g; self.maxh+=g; } } },
+  transcendant:{ endTurn:(p,self)=>{ const g=p.gold; if(g>0){ self.a+=g; self.h+=g; self.maxh+=g; } } },
+  mint:{ startTurn:(p)=>{ p.goldBonus=Math.min(2,(p.goldBonus||0)+1); gainGold(p,2); } },
+  grandwork:{ startTurn:(p)=>gainGold(p,3) },
+  vialkeeper:{ endTurn:(p)=>{ p._freeRefresh=true; } },
+  transmuter:{},                       // discounts first shop minion by 1 (applyShopDiscounts)
+  elixir:{},                           // triple-discounts a random shop minion (applyShopDiscounts)
+  goldcore:{ startCombat:(a)=>{ const p=a.ctx.playerOf[a.which]; if(p) a.self.a+=(p._goldLast||0); } },
+  magnumopus:{ startCombat:(a)=>{ const p=a.ctx.playerOf[a.which]; if(p){ const g=p._goldLast||0; a.self.a+=2*g; a.self.h+=2*g; a.self.maxh+=2*g; } } },
+  // ----- Titans -----
+  // Greenhorn: gains +2/+1 the turn it's played; the bonus is stripped at the start of the next turn (see startBuyPhase).
+  freshtitan:{ battlecry:(p,self)=>{ self.a+=2; self.h+=1; self.maxh+=1; self._fresh=true; } },
+  gigaton:{},                          // survive-once handled in cleanup
+  singularity:{},                      // doubles Apex (checked in sellMinion)
+  colossusprime:{ startCombat:(a)=>{ const e=a.foe.filter(m=>m.h>0).sort((x,y)=>y.h-x.h).slice(0,2); e.forEach(t=>dealDamage(t,a.self.a,a.foe,a.ctx,a.self)); cleanupBoards(a.ctx); } },
+  genesis:{ endCombat:(a)=>{ if(a.mine.length===1&&a.mine[0]===a.self) perma(a.ctx,a.self,5,5); } }
+};
+function gainGold(p,n){ if(p.board.some(m=>m.fx==='catalyst')) n+=1; p.gold=Math.min(10,p.gold+n); }
+function applyPerma(sim){ if(!sim||!sim.perma) return; const map=sim.perma; state.players.forEach(p=>{ if(!p.board) return; p.board.forEach(m=>{ if(map[m.id]){ m.a+=map[m.id].a; m.h+=map[m.id].h; m.maxh+=map[m.id].h; } }); }); }
+
+/* ============================== ROUND / PAIRING ============================== */
+function endTurn(){
+  if(state.phase!=='buy' || state.combatRunning) return;
+  if(discoverActive){ toast('Pick your discover reward first'); return; }
+  sfxEndTurn();
+  // AI buy phases
+  state.players.forEach(p=>{ if(!p.you && !p.dead) aiTakeTurn(p); });
+  // end-of-turn keyword effects + gold snapshot (for combat scalers)
+  state.players.forEach(p=>{ if(p.dead) return;
+    p.board.forEach(m=>{ if(m.fx && EFFECTS[m.fx] && EFFECTS[m.fx].endTurn) EFFECTS[m.fx].endTurn(p, m); });
+    if(p.gold===0) p.board.forEach(m=>{ if(m.fx==='grandwork'){ m.a+=5; m.h+=5; m.maxh+=5; } });
+    p._goldLast = p.gold;
+  });
+  state.phase='combat';
+  render();
+  runCombatRound();
+}
+
+function makePairs(){
+  const live = alive();
+  const shuffled = [...live].sort(()=>Math.random()-.5);
+  const pairs=[];
+  for(let i=0;i<shuffled.length;i+=2){
+    if(i+1<shuffled.length) pairs.push([shuffled[i],shuffled[i+1]]);
+    else pairs.push([shuffled[i], ghostOf(live)]); // odd -> fight a ghost copy
+  }
+  return pairs;
+}
+function ghostOf(live){
+  const dead = state.players.filter(p=>p.dead);
+  const src = (dead.length?dead:live)[Math.floor(Math.random()*(dead.length?dead.length:live.length))];
+  return {name:src.name+" (ghost)", ghost:true, board:src.board, tier:src.tier, hp:99, dead:false};
+}
+
+async function runCombatRound(){
+  state.combatRunning=true;
+  const pairs = makePairs();
+  // find the human's match
+  const myPair = pairs.find(pr=>pr.some(p=>p.you));
+  // resolve AI-only matches silently
+  pairs.forEach(pr=>{
+    if(pr===myPair) return;
+    resolveMatch(pr[0],pr[1],false);
+  });
+  // play human match with animation
+  if(myPair){
+    const opp = myPair[0].you?myPair[1]:myPair[0];
+    await playMatch(me(), opp);
+  }
+  // check deaths / win
+  afterCombat();
+}
+
+function resolveMatch(a,b,verbose){
+  const sim = simulate(b.board, a.board, b.tier, a.tier, b, a); // top=b, bot=a
+  applyResult(sim,a,b);
+}
+function applyResult(sim,a,b){
+  // bot=a, top=b
+  if(sim.result==='bot'){ if(!b.ghost){ b.hp-=sim.dmg; } }
+  else if(sim.result==='top'){ if(!a.ghost){ a.hp-=sim.dmg; } }
+  applyPerma(sim);
+}
+
+/* ============================== HUMAN COMBAT (animated, on the board) ============================== */
+function setCombatBtns(mode){ // 'buy' | 'running' | 'done'
+  document.getElementById('btnEnd').style.display      = mode==='buy'    ?'':'none';
+  document.getElementById('btnSkip').style.display     = mode==='running'?'':'none';
+  document.getElementById('btnContinue').style.display = mode==='done'   ?'':'none';
+}
+function endCombatUI(){
+  document.getElementById('play').classList.remove('combat');
+  document.getElementById('resultBanner').classList.remove('show');
+  // restore Bob's tavern header
+  document.getElementById('bobPortrait').textContent='🧔';
+  document.getElementById('bobName').textContent="Bob's Tavern";
+  setCombatBtns('buy');
+}
+function playMatch(player, opp){
+  return new Promise(resolve=>{
+    const sim = simulate(opp.board, player.board, opp.tier, player.tier, opp, player); // top=opp, bot=player
+    const play=document.getElementById('play');
+    play.classList.add('combat');
+    document.getElementById('topbar').classList.add('combat');
+    // the opponent takes over Bob's spot above the (now enemy) shop zone
+    document.getElementById('bobPortrait').textContent = opp.ghost?'👻':'🤖';
+    document.getElementById('bobName').textContent = '⚔ '+opp.name;
+    document.getElementById('bobTier').textContent = opp.tier;
+    setCombatBtns('running');
+
+    // working copies — opponent renders into the shop zone (top), you into the board (bottom)
+    const topState = cloneBoard(opp.board);
+    const botState = cloneBoard(player.board);
+    const findCard=(id)=> document.querySelector(`#play [data-cid="${id}"]`);
+    renderArena(topState, botState);
+
+    let i=0, skipped=false, done=false;
+    const btnSkip=document.getElementById('btnSkip');
+    const btnCont=document.getElementById('btnContinue');
+    btnSkip.onclick=()=>{ skipped=true; };
+
+    function finish(){
+      if(done) return; done=true;
+      const rb=document.getElementById('resultBanner');
+      if(sim.result==='top'){ player.hp-=sim.dmg; rb.innerHTML=`<span class="lose">Defeat  −${sim.dmg}</span>`; log(`Lost to ${opp.name}: −${sim.dmg} health`,'lose'); }
+      else if(sim.result==='bot'){ if(!opp.ghost) opp.hp-=sim.dmg; rb.innerHTML=`<span class="win">Victory!  ${sim.dmg} dmg</span>`; log(`Beat ${opp.name}: dealt ${sim.dmg}`,'win'); }
+      else { rb.innerHTML=`<span>Draw</span>`; log(`Tied with ${opp.name}`,'sys'); }
+      applyPerma(sim);
+      renderArena(sim.finalTop, sim.finalBot);
+      rb.classList.add('show');
+      setCombatBtns('done');
+      btnCont.onclick=()=>{ sfxContinue(); endCombatUI(); resolve(); };
+    }
+
+    function step(){
+      if(done) return;
+      if(skipped){ finish(); return; }
+      if(i>=sim.events.length){ finish(); return; }
+      const ev=sim.events[i++];
+      applyEventVisual(ev, topState, botState, findCard, ()=>{
+        // slower, with a clear pause before each new strike
+        const nxt=sim.events[i];
+        let delay;
+        if(ev.type==='attack') delay=140;
+        else if(ev.type==='hit') delay = (nxt && nxt.type==='attack') ? 520 : 150;
+        else if(ev.type==='death') delay=150;
+        else if(ev.type==='shieldpop') delay=200;
+        else delay=130;
+        // if a strike dealt no 'hit' events (e.g. fully absorbed) still pause before next attack
+        if(ev.type==='attack' && nxt && nxt.type==='attack') delay=520;
+        setTimeout(step, delay);
+      });
+    }
+    setTimeout(step, 650);
+  });
+}
+
+function applyEventVisual(ev, top, bot, findCard, next){
+  const all=[...top,...bot];
+  const get=(id)=>all.find(m=>m.id===id);
+  if(ev.type==='attack'){
+    const ac=findCard(ev.att), dc=findCard(ev.def);
+    if(!ac||!dc){ next(); return; }
+    lunge(ac, dc, ()=>{                         // on impact:
+      bonk();                                   // play the bonk
+      dc.classList.add('hurt');                 // defender recoils/shakes
+      ac.classList.add('strike');               // attacker flashes
+      setTimeout(()=>{ dc.classList.remove('hurt'); ac.classList.remove('strike'); }, 340);
+      next();                                    // let the hit events (HP loss) play now
+    });
+    return;
+  }
+  if(ev.type==='hit'){
+    const m=get(ev.id); if(m && ev.h!=null) m.h=ev.h;
+    const el=findCard(ev.id);
+    if(el && ev.h!=null){
+      const hp=el.querySelector('.hp');
+      if(hp){ hp.textContent=Math.max(0,ev.h);
+        hp.classList.remove('dmg'); void hp.offsetWidth; hp.classList.add(ev.poison?'dmg poison':'dmg'); }
+      spawnDmg(el, ev.dmg, ev.poison);
+    }
+    next(); return;
+  }
+  if(ev.type==='shieldpop'){
+    const m=get(ev.id); if(m)m.shield=false;
+    const el=findCard(ev.id); if(el){ el.classList.remove('shield'); el.classList.add('shieldpop'); setTimeout(()=>el.classList.remove('shieldpop'),360); }
+    next(); return;
+  }
+  if(ev.type==='death'){
+    const side = ev.side==='top'?top:bot;
+    const el=findCard(ev.id);
+    const idx=side.findIndex(m=>m.id===ev.id); if(idx>=0) side.splice(idx,1);
+    if(el){ el.classList.add('dying'); setTimeout(()=>{ renderArena(top,bot); next(); }, 240); }
+    else { renderArena(top,bot); next(); }
+    return;
+  }
+  if(ev.type==='summon'){ renderArena(top,bot); next(); return; }
+  next();
+}
+
+// Lunge the attacker most of the way toward the defender, fire impact(), then recoil home.
+function lunge(ac, dc, impact){
+  const a=ac.getBoundingClientRect(), d=dc.getBoundingClientRect();
+  const dx=((d.left+d.width/2)-(a.left+a.width/2))*0.74;
+  const dy=((d.top+d.height/2)-(a.top+a.height/2))*0.74;
+  // lift the attacker's whole zone so it renders above the other zone (zones are
+  // sibling stacking contexts, so a card's own z-index can't escape its zone).
+  const zone=ac.closest('.zone'); if(zone) zone.style.zIndex='30';
+  ac.style.zIndex='10';
+  // wind-up: ease toward the target, slower so the charge reads clearly
+  ac.style.transition='transform .26s cubic-bezier(.35,0,.8,.35)';
+  ac.style.transform=`translate(${dx}px,${dy}px) scale(1.1)`;
+  setTimeout(()=>{
+    if(impact) impact();
+    ac.style.transition='transform .34s cubic-bezier(.2,.8,.3,1)';
+    ac.style.transform='';
+    setTimeout(()=>{ ac.style.zIndex=''; ac.style.transition=''; if(zone) zone.style.zIndex=''; }, 340);
+  }, 270);
+}
+
+// Floating "-N" damage number over a card.
+function spawnDmg(el, dmg, poison){
+  if(!dmg || dmg<=0) return;
+  const d=document.createElement('div');
+  d.className='dmgnum'+(poison?' poison':'');
+  d.textContent='-'+dmg;
+  el.appendChild(d);
+  setTimeout(()=>d.remove(), 700);
+}
+
+// Combat plays out on the main board: opponent in the shop zone (top), you in the board zone (bottom).
+function renderArena(top, bot){
+  document.getElementById('shop').innerHTML  = top.map(m=>cardHTML(m,{combat:true})).join('') || '<div class="slot"></div>';
+  document.getElementById('board').innerHTML = bot.map(m=>cardHTML(m,{combat:true})).join('') || '<div class="slot"></div>';
+}
+
+/* ============================== AFTER COMBAT ============================== */
+function afterCombat(){
+  state.players.forEach(p=>{
+    if(!p.dead && p.hp<=0){ p.dead=true; p.hp=0; log(`${p.name} has been eliminated!`, p.you?'lose':'sys'); }
+  });
+  state.combatRunning=false;
+
+  const live=alive();
+  if(me().dead || live.length<=1){
+    endGame(live);
+    return;
+  }
+  state.round++;
+  startBuyPhase();
+}
+
+function endGame(live){
+  state.phase='over';
+  const play=document.getElementById('play'); play.classList.add('combat');
+  document.getElementById('bobName').textContent='Game Over';
+  document.getElementById('bobPortrait').textContent='🏁';
+  let msg;
+  if(live.length===1 && live[0].you) msg='<span class="win">🏆 YOU WIN!</span>';
+  else if(me().dead) msg='<span class="lose">💀 You were eliminated</span>';
+  else msg=`<span>Winner: ${live[0].name}</span>`;
+  const rb=document.getElementById('resultBanner'); rb.innerHTML=msg; rb.classList.add('show');
+  setCombatBtns('done');
+  const btnCont=document.getElementById('btnContinue');
+  btnCont.textContent='Play Again';
+  btnCont.onclick=()=>{ btnCont.textContent='Continue ▶'; document.getElementById('log').innerHTML=''; endCombatUI(); newGame(); };
+}
+
+/* ============================== RENDER ============================== */
+const ART = {Spores:'🍄', Embers:'🔥', Swarm:'🐛', Golems:'🗿', Phantoms:'👻', Raiders:'🏴‍☠️',
+  Mirrors:'🪞', Wardens:'🛡️', Alchemists:'⚗️', Titans:'⛰️',
+  Beast:'🐺', Mech:'⚙️', Demon:'😈', Dragon:'🐉', Murloc:'🐟', Neutral:'👤'};
+// Keyword definitions: [emoji, name, description]. Used for card chips + hover tooltip.
+const KW_DESC = {
+  taunt:['🛡','Taunt','Enemy minions must attack this minion first.'],
+  shield:['✦','Divine Shield','The first time this minion takes damage, ignore it.'],
+  cleave:['↔','Cleave','Also damages the minions adjacent to its target.'],
+  windfury:['↻','Windfury','Attacks twice each combat turn.'],
+  reborn:['♻','Reborn','The first time this dies, return it with 1 Health.'],
+  toxin:['☠','Toxin','Stacks poison on minions it damages — a poisoned minion loses that much Health each time it attacks.'],
+  bulwark:['⛨','Bulwark','Absorbs incoming damage like armor before any Health is lost.'],
+  kindle:['🔥','Kindle','After another friendly minion attacks, gain Attack.'],
+  haunt:['⚰','Haunt','Whenever a friendly minion dies, gain Attack.'],
+  plunder:['⚓','Plunder','When you buy this, it gains Attack.'],
+  apex:['⛰','Apex','After you sell another Titan, this minion gains +2/+2.'],
+  brood:['🐛','Brood','Deathrattle: summon that many 1/1 Swarmlings.'],
+  suppress:['🔇','Suppress','At combat start, removes keywords from the adjacent enemy minions.'],
+  reflect:['🪞','Reflect','In combat, counts as the tribe of the minion on its left for tribal synergies.'],
+};
+// Which keywords (and their values) are active on a minion.
+function activeKeywords(m){
+  const out=[];
+  if(m.taunt) out.push(['taunt',null]);
+  if(m.shield) out.push(['shield',null]);
+  if(m.cleave) out.push(['cleave',null]);
+  if(m.windfury) out.push(['windfury',null]);
+  if(m.reborn) out.push(['reborn',null]);
+  if(m.toxinApply>0) out.push(['toxin',m.toxinApply>1?m.toxinApply:null]);
+  if(m.bulwark>0) out.push(['bulwark',m.bulwark]);
+  if(m.kindle>0) out.push(['kindle',m.kindle]);
+  if(m.haunt>0) out.push(['haunt',m.haunt]);
+  if(m.plunder>0) out.push(['plunder',m.plunder]);
+  if(m.apex) out.push(['apex',null]);
+  if(m.brood>0) out.push(['brood',m.brood>1?m.brood:null]);
+  if(m.suppress) out.push(['suppress',null]);
+  if(m.reflect) out.push(['reflect',null]);
+  return out;
+}
+function cardHTML(m, opt={}){
+  if(m.spell){
+    const scls=['card','spell']; if(opt.zone) scls.push('z-'+opt.zone); if(opt.noafford) scls.push('noafford');
+    const canDrag = (opt.zone==='hand') || (opt.zone==='shop' && !opt.noafford);
+    return `<div class="${scls.join(' ')}" ${canDrag?'draggable="true"':'draggable="false"'} data-idx="${opt.idx??''}" data-zone="${opt.zone||''}" data-cid="${m.id}">
+      <div class="spellcost" title="Cost">${m.cost}</div>
+      <div class="frame"></div>
+      <div class="nm">${m.name}</div>
+      <div class="art">${m.art}</div>
+      <div class="tribe">Spell</div>
+      <div class="spelltext">${m.text}</div>
+    </div>`;
+  }
+  const cls=['card'];
+  if(m.golden) cls.push('golden');
+  if(m.taunt) cls.push('taunt');
+  if(m.shield) cls.push('shield');
+  if(opt.sel) cls.push('sel');
+  if(opt.noafford) cls.push('noafford');
+  if(opt.zone) cls.push('z-'+opt.zone);
+  const keys = activeKeywords(m).map(([k,n])=>{ const d=KW_DESC[k];
+    return `<span class="kw" data-kw="${k}">${d[0]} ${d[1]}${n?' '+n:''}</span>`; }).join('');
+  const stars = '★'.repeat(Math.min(m.t,6));
+  const banner = `<div class="tavbanner" title="Tier ${m.t}">${stars}</div>`;
+  const canDrag = (opt.zone==='board') || (opt.zone==='hand') || (opt.zone==='shop' && !opt.noafford);
+  const drag = canDrag ? 'draggable="true"' : 'draggable="false"';
+  return `<div class="${cls.join(' ')}" ${drag} data-idx="${opt.idx??''}" data-zone="${opt.zone||''}" data-cid="${m.id}">
+    ${banner}
+    ${m.golden?'<div class="goldbadge">✦</div>':''}
+    <div class="frame"></div>
+    <div class="nm">${m.name}</div>
+    <div class="art">${ART[m.tribe]||'❔'}</div>
+    <div class="tribe">${m.tribe}</div>
+    <div class="keys">${keys}</div>
+    <div class="atk">${m.a}</div>
+    <div class="hp">${m.h}</div>
+  </div>`;
+}
+
+function render(){
+  const p=me();
+  // status
+  document.getElementById('hdrRound').textContent=state.round;
+  document.getElementById('hdrTier').textContent=p.tier;
+  document.getElementById('bobTier').textContent=p.tier;
+  document.getElementById('hdrGold').textContent=p.gold;
+  document.getElementById('hdrGoldMax').textContent=p.goldMax;
+  document.getElementById('hdrHp').textContent=p.hp;
+  document.getElementById('hdrPhase').textContent = state.phase==='buy'?'Recruit':state.phase==='combat'?'Combat':'Game Over';
+  document.getElementById('topbar').classList.toggle('combat', state.phase==='combat');
+
+  // gold pips
+  const gmax=Math.min(10,Math.max(p.goldMax,p.gold));
+  let pips='';
+  for(let i=0;i<gmax;i++) pips += `<span class="pip ${i<p.gold?'on':''}"></span>`;
+  document.getElementById('goldPips').innerHTML=pips;
+
+  // roster strip
+  document.getElementById('roster').innerHTML = state.players.map(pl=>`
+    <div class="rp ${pl.dead?'dead':''} ${pl.you?'you':''}" title="${pl.name}">
+      <div class="rp-portrait">${pl.you?'🧝‍♀️':'🤖'}<span class="rp-tier">${pl.tier}</span></div>
+      <div class="rp-name">${pl.name}</div>
+      <div class="rp-hp">${pl.dead?'☠':(pl.hp>0?pl.hp:0)}</div>
+    </div>`).join('');
+
+  // shop — affordability is per-card (spells have their own cost; buying goes to hand)
+  const handFull = (p.hand||[]).length>=HAND_MAX;
+  document.getElementById('shop').innerHTML = p.shop.map((c,i)=>{
+    const cost = c.cost!=null ? c.cost : 3;
+    return cardHTML(c,{idx:i,zone:'shop',noafford:(p.gold<cost||handFull)});
+  }).join('') || '<div class="slot"></div>';
+
+  // board — show all 7 slots
+  let bh='';
+  for(let i=0;i<MAX_BOARD;i++){
+    bh += p.board[i] ? cardHTML(p.board[i],{idx:i,zone:'board',sel:state.sel===i}) : '<div class="slot"></div>';
+  }
+  document.getElementById('board').innerHTML = bh;
+  document.getElementById('boardCount').textContent = `${p.board.length} / ${MAX_BOARD}`;
+
+  // hand
+  const hand = p.hand||[];
+  document.getElementById('hand').innerHTML = hand.length
+    ? hand.map((c,i)=>cardHTML(c,{idx:i,zone:'hand'})).join('')
+    : '<div class="hand-empty">Buy minions &amp; spells — they land here. Drag a minion to the board to play it; drag a spell onto a minion to cast it.</div>';
+  document.getElementById('handCount').textContent = hand.length ? `${hand.length} / ${HAND_MAX}` : '';
+
+  // controls
+  const buyPhase = state.phase==='buy';
+  document.getElementById('btnRoll').disabled = !buyPhase || p.gold<1;
+  document.getElementById('btnEnd').disabled = !buyPhase;
+  const uc=upgradeCost(p);
+  document.getElementById('upCost').textContent = p.tier>=MAX_TIER?'MAX':uc;
+  document.getElementById('btnUpgrade').disabled = !buyPhase || p.tier>=MAX_TIER || p.gold<uc;
+  document.getElementById('btnFreeze').classList.toggle('active', !!state.frozen);
+  document.getElementById('btnFreeze').disabled = !buyPhase;
+  const hasSel = state.sel!=null && p.board[state.sel];
+  document.getElementById('btnSell').disabled = !buyPhase || !hasSel;
+  document.getElementById('btnLeft').disabled = !buyPhase || !hasSel || state.sel===0;
+  document.getElementById('btnRight').disabled = !buyPhase || !hasSel || state.sel===p.board.length-1;
+
+  bindCards();
+}
+
+let dragSrc=null;
+function bindCards(){
+  document.querySelectorAll('#shop .card').forEach(el=>{
+    el.onclick=()=>{ if(state.phase!=='buy') return; buyMinion(me(), +el.dataset.idx); render(); };  // buy -> hand
+    el.ondragstart=e=>{
+      if(state.phase!=='buy'){ e.preventDefault(); return; }
+      const c=me().shop[+el.dataset.idx]; const cost=c&&c.cost!=null?c.cost:3;
+      if(me().gold<cost){ e.preventDefault(); toast('Not enough gold'); return; }
+      if((me().hand||[]).length>=HAND_MAX){ e.preventDefault(); toast('Hand is full'); return; }
+      dragSrc={type:'shop',idx:+el.dataset.idx,spell:!!(c&&c.spell)}; e.dataTransfer.effectAllowed='copy'; el.style.opacity='.4';
+    };
+    el.ondragend=()=>{ dragSrc=null; el.style.opacity=''; clearDragHints(); };
+  });
+  document.querySelectorAll('#board .card').forEach(el=>{
+    el.onclick=()=>{ if(state.phase!=='buy') return; const i=+el.dataset.idx; state.sel = state.sel===i?null:i; render(); };
+    el.ondragstart=e=>{ if(state.phase!=='buy'){ e.preventDefault(); return; } dragSrc={type:'board',idx:+el.dataset.idx}; e.dataTransfer.effectAllowed='move'; el.style.opacity='.4'; };
+    el.ondragend=()=>{ dragSrc=null; el.style.opacity=''; clearDragHints(); };
+  });
+  // hand: click to play (minions -> board; non-target spells -> cast); drag to board to place/target
+  document.querySelectorAll('#hand .card').forEach(el=>{
+    el.onclick=()=>{
+      if(state.phase!=='buy') return;
+      const i=+el.dataset.idx, c=me().hand[i]; if(!c) return;
+      if(c.spell){ if(c.target==='friendly') toast('Drag this spell onto one of your minions'); else { playSpell(me(),i,null); render(); } }
+      else { playMinion(me(), i, me().board.length); render(); }
+    };
+    el.ondragstart=e=>{
+      if(state.phase!=='buy'){ e.preventDefault(); return; }
+      const c=me().hand[+el.dataset.idx];
+      dragSrc={type:'hand',idx:+el.dataset.idx,spell:!!(c&&c.spell),target:c&&c.target};
+      e.dataTransfer.effectAllowed='move'; el.style.opacity='.4';
+    };
+    el.ondragend=()=>{ dragSrc=null; el.style.opacity=''; clearDragHints(); };
+  });
+}
+// the board minion under a screen point (for targeted spells)
+function boardMinionAt(x,y){
+  const el=document.elementFromPoint(x,y); const card=el&&el.closest&&el.closest('#board .card');
+  if(!card) return null;
+  return me().board[+card.dataset.idx]||null;
+}
+function dropIndex(zoneEl, clientX){
+  const kids=[...zoneEl.querySelectorAll('.card,.slot')];
+  for(let i=0;i<kids.length;i++){
+    const r=kids[i].getBoundingClientRect();
+    if(clientX < r.left + r.width/2) return i;
+  }
+  return kids.length;
+}
+function clearDragHints(){
+  document.getElementById('board').classList.remove('drag-hover');
+  document.getElementById('shop').classList.remove('sell-hover');
+  document.getElementById('hand').classList.remove('drag-hover');
+}
+function setupDrag(){
+  const zone=document.getElementById('board');
+  zone.addEventListener('dragover', e=>{ if(dragSrc && state.phase==='buy'){ e.preventDefault(); zone.classList.add('drag-hover'); } });
+  zone.addEventListener('dragleave', e=>{ if(!zone.contains(e.relatedTarget)) zone.classList.remove('drag-hover'); });
+  zone.addEventListener('drop', e=>{
+    if(!dragSrc || state.phase!=='buy') return;
+    e.preventDefault();
+    const to=dropIndex(zone, e.clientX);
+    if(dragSrc.type==='shop'){
+      if(dragSrc.spell) buyMinion(me(), dragSrc.idx);        // a spell just goes to hand
+      else buyAndPlay(me(), dragSrc.idx, to);
+    } else if(dragSrc.type==='board'){
+      moveMinion(dragSrc.idx, to);
+    } else if(dragSrc.type==='hand'){
+      const c=me().hand[dragSrc.idx];
+      if(c && c.spell){
+        if(c.target==='friendly'){ const t=boardMinionAt(e.clientX,e.clientY); if(t) playSpell(me(),dragSrc.idx,t); else toast('Drop the spell onto a minion'); }
+        else playSpell(me(),dragSrc.idx,null);
+      } else playMinion(me(), dragSrc.idx, to);
+    }
+    dragSrc=null; clearDragHints(); render();
+  });
+
+  // drag a board minion onto the tavern to sell it
+  const shop=document.getElementById('shop');
+  shop.addEventListener('dragover', e=>{ if(dragSrc && dragSrc.type==='board' && state.phase==='buy'){ e.preventDefault(); shop.classList.add('sell-hover'); } });
+  shop.addEventListener('dragleave', e=>{ if(!shop.contains(e.relatedTarget)) shop.classList.remove('sell-hover'); });
+  shop.addEventListener('drop', e=>{
+    if(!dragSrc || dragSrc.type!=='board' || state.phase!=='buy') return;
+    e.preventDefault();
+    sellMinion(me(), dragSrc.idx); state.sel=null;
+    dragSrc=null; clearDragHints(); render();
+  });
+
+  // the hand is also a drop target: buy a shop card into it, or re-order won't matter
+  const hand=document.getElementById('hand');
+  hand.addEventListener('dragover', e=>{ if(dragSrc && (dragSrc.type==='shop') && state.phase==='buy'){ e.preventDefault(); hand.classList.add('drag-hover'); } });
+  hand.addEventListener('dragleave', e=>{ if(!hand.contains(e.relatedTarget)) hand.classList.remove('drag-hover'); });
+  hand.addEventListener('drop', e=>{
+    if(!dragSrc || dragSrc.type!=='shop' || state.phase!=='buy') return;
+    e.preventDefault();
+    buyMinion(me(), dragSrc.idx);
+    dragSrc=null; clearDragHints(); render();
+  });
+}
+
+/* ============================== UI BUTTONS ============================== */
+document.getElementById('btnRoll').onclick=()=>{ doRoll(me()); render(); };
+document.getElementById('btnUpgrade').onclick=()=>{ doUpgrade(me()); render(); };
+document.getElementById('btnEnd').onclick=()=>{ state.sel=null; endTurn(); };
+document.getElementById('btnFreeze').onclick=()=>{
+  if(state.frozen){ state.frozen=null; } else { state.frozen=me().shop.slice(); }
+  render();
+};
+document.getElementById('btnSell').onclick=()=>{ if(state.sel!=null){ sellMinion(me(),state.sel); state.sel=null; render(); } };
+document.getElementById('btnLeft').onclick=()=>{ const i=state.sel; if(i>0){ const b=me().board; [b[i-1],b[i]]=[b[i],b[i-1]]; state.sel=i-1; render(); } };
+document.getElementById('btnRight').onclick=()=>{ const i=state.sel; const b=me().board; if(i<b.length-1){ [b[i+1],b[i]]=[b[i],b[i+1]]; state.sel=i+1; render(); } };
+
+/* ============================== HELPERS ============================== */
+function log(msg,cls=''){ const el=document.getElementById('log'); const d=document.createElement('div'); d.className=cls; d.textContent=msg; el.appendChild(d); el.scrollTop=el.scrollHeight; }
+let toastTimer;
+function toast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.classList.remove('show'),1400); }
+
+/* ============================== SOUND ============================== */
+let audioCtx=null, soundOn=true;
+function ensureAudio(){
+  try{
+    if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state==='suspended') audioCtx.resume();
+  }catch(e){ audioCtx=null; }
+}
+// browsers require a user gesture before audio; resume on any pointer input
+document.addEventListener('pointerdown', ensureAudio);
+function bonk(){
+  if(!soundOn) return;
+  ensureAudio(); if(!audioCtx) return;
+  const t=audioCtx.currentTime, v=0.35+Math.random()*0.1;
+  // low woody thump
+  const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+  o.type='triangle';
+  o.frequency.setValueAtTime(230+Math.random()*40,t);
+  o.frequency.exponentialRampToValueAtTime(62,t+0.13);
+  g.gain.setValueAtTime(0.0001,t);
+  g.gain.exponentialRampToValueAtTime(v,t+0.008);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+0.2);
+  o.connect(g).connect(audioCtx.destination); o.start(t); o.stop(t+0.22);
+  // short noise "knock" for the attack of the bonk
+  const sr=audioCtx.sampleRate, len=Math.floor(sr*0.05), buf=audioCtx.createBuffer(1,len,sr), data=buf.getChannelData(0);
+  for(let k=0;k<len;k++) data[k]=(Math.random()*2-1)*Math.pow(1-k/len,2.2);
+  const ns=audioCtx.createBufferSource(); ns.buffer=buf;
+  const ng=audioCtx.createGain(); ng.gain.value=0.28;
+  ns.connect(ng).connect(audioCtx.destination); ns.start(t);
+}
+
+/* ---- generic synth helpers for UI sound effects ---- */
+function blip({type='sine', f0, f1=null, t0=0, dur=0.18, v=0.3, decay=null}){
+  ensureAudio(); if(!audioCtx) return;
+  const t=audioCtx.currentTime+t0, end=decay||dur;
+  const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+  o.type=type; o.frequency.setValueAtTime(f0,t);
+  if(f1!=null) o.frequency.exponentialRampToValueAtTime(Math.max(1,f1),t+dur);
+  g.gain.setValueAtTime(0.0001,t);
+  g.gain.exponentialRampToValueAtTime(v,t+0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+end);
+  o.connect(g).connect(audioCtx.destination); o.start(t); o.stop(t+end+0.02);
+}
+function noiseBurst({t0=0, dur=0.05, v=0.2, decayPow=2.2}){
+  ensureAudio(); if(!audioCtx) return;
+  const t=audioCtx.currentTime+t0, sr=audioCtx.sampleRate, len=Math.max(1,Math.floor(sr*dur));
+  const buf=audioCtx.createBuffer(1,len,sr), d=buf.getChannelData(0);
+  for(let k=0;k<len;k++) d[k]=(Math.random()*2-1)*Math.pow(1-k/len,decayPow);
+  const ns=audioCtx.createBufferSource(); ns.buffer=buf;
+  const ng=audioCtx.createGain(); ng.gain.value=v;
+  ns.connect(ng).connect(audioCtx.destination); ns.start(t);
+}
+// purchase — bright two-note coin "cha-ching"
+function sfxBuy(){ if(!soundOn) return; blip({type:'square',f0:740,dur:0.07,v:0.16,decay:0.09});
+  blip({type:'square',f0:1108,t0:0.07,dur:0.1,v:0.18,decay:0.14}); noiseBurst({t0:0.07,dur:0.03,v:0.07}); }
+// place a minion — short wooden thud
+function sfxPlace(){ if(!soundOn) return; blip({type:'triangle',f0:210,f1:90,dur:0.11,v:0.3,decay:0.15});
+  noiseBurst({dur:0.04,v:0.16,decayPow:2.6}); }
+// sell — quick descending metallic coin jingle
+function sfxSell(){ if(!soundOn) return;
+  blip({type:'square',f0:920,dur:0.05,v:0.13,decay:0.07});
+  blip({type:'square',f0:680,t0:0.05,dur:0.05,v:0.13,decay:0.07});
+  blip({type:'square',f0:1020,t0:0.1,dur:0.06,v:0.12,decay:0.1});
+  noiseBurst({t0:0.02,dur:0.08,v:0.06,decayPow:3}); }
+// end turn — low brassy horn swell
+function sfxEndTurn(){ if(!soundOn) return;
+  blip({type:'sawtooth',f0:150,f1:240,dur:0.26,v:0.2,decay:0.32});
+  blip({type:'sawtooth',f0:75,f1:120,dur:0.26,v:0.14,decay:0.32});
+  noiseBurst({dur:0.18,v:0.045,decayPow:1.4}); }
+// continue from battle — bright ascending bell chord
+function sfxContinue(){ if(!soundOn) return;
+  blip({type:'sine',f0:523,dur:0.16,v:0.24,decay:0.3});
+  blip({type:'sine',f0:784,t0:0.1,dur:0.22,v:0.26,decay:0.42});
+  blip({type:'triangle',f0:1046,t0:0.1,dur:0.22,v:0.1,decay:0.42}); }
+
+/* ============================== TOOLTIPS ============================== */
+const tipEl = document.getElementById('tip');
+let tipShown=false;
+function positionTip(x,y){
+  const pad=14, w=tipEl.offsetWidth, h=tipEl.offsetHeight;
+  let left=x+18, top=y+18;
+  if(left+w+pad>window.innerWidth) left=x-w-18;
+  if(top+h+pad>window.innerHeight) top=y-h-18;
+  tipEl.style.left=Math.max(pad,left)+'px';
+  tipEl.style.top=Math.max(pad,top)+'px';
+}
+function hideTip(){ if(tipShown){ tipEl.classList.remove('show'); tipShown=false; } }
+document.addEventListener('mouseover', e=>{
+  const kw = e.target.closest && e.target.closest('.kw');
+  if(!kw) return;                           // tooltips are keyword-only
+  const d=KW_DESC[kw.dataset.kw]; if(!d) return;
+  tipEl.innerHTML = `<div class="tip-head"><span class="tip-art">${d[0]}</span>
+    <div><div class="tip-name">${d[1]}</div><div class="tip-sub">Keyword</div></div></div>
+    <div class="tip-kws"><div class="tk"><span>${d[2]}</span></div></div>`;
+  tipEl.classList.add('show'); tipShown=true; positionTip(e.clientX,e.clientY);
+});
+document.addEventListener('mousemove', e=>{ if(tipShown) positionTip(e.clientX,e.clientY); });
+document.addEventListener('mouseout', e=>{
+  const to=e.relatedTarget;
+  if(to && to.closest && to.closest('.kw')) return; // moving between chips
+  hideTip();
+});
+
+/* ============================== GO ============================== */
+setupDrag();
+newGame();
+</script>
+</body>
+</html>
