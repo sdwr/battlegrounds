@@ -55,10 +55,19 @@ not a literal reading of the card text. Listed by area.
   i-1, i, i+1), an approximation of positional adjacency across two boards.
 
 ### Spores
-- **Sporemother** grants Toxin to all friendly minions for the **whole combat**
+- **Toxin** is a boolean keyword (no magnitude). When a Toxin minion damages a minion,
+  the victim's `poison` is set to the **damage actually dealt** (`max` with any existing
+  poison, so it never drops). A poisoned minion loses that much Health **after each time
+  it attacks**, plus **one final tick at the end of combat** (`tickPoison`). The end tick
+  can wither a poisoned survivor to death — turning a win into a **tie**. Scales with
+  Attack instead of a flat stack count.
+- A hit fully absorbed by a **Divine Shield or Bulwark** deals 0 damage → poisons for 0,
+  so shields naturally block Toxin (no special-casing). Adamant Colossus stays immune
+  while its Bulwark holds.
+- Effects that "apply"/"spread"/"move" poison (Plaguelord, Mycelial Queen, The Wilting)
+  write `poison` directly using `max`; Plaguelord/Queen seed it from the source's Attack.
+- **Sporemother** grants the Toxin keyword to all other friendly minions for the combat
   (card text: only their *first* attack).
-- Fully Bulwark-absorbed hits apply **no Toxin** (keeps Adamant Colossus' "immune while
-  Bulwark holds" consistent).
 
 ### Phantoms
 - **The Reckoning** buffs **itself** +1/+1 per friendly death (card text: a random
@@ -86,8 +95,8 @@ not a literal reading of the card text. Listed by area.
 
 ## Fully implemented (no shortcut)
 
-All other keywords and effects behave as written, including: Toxin DoT (escalating,
-ticks at the start of the poisoned minion's attacks), Bulwark absorb + on-break effects
+All other keywords and effects behave as written, including: Toxin DoT (poison = damage
+dealt, ticks at the start of the poisoned minion's attacks), Bulwark absorb + on-break effects
 (Magma reflect, Unbroken AoE, Worldcore refresh), Kindle ramp + sharing (Forgekeeper)
 + Sunshatter health, Haunt, Brood tokens (+ Drone Captain / Brood Queen / Overmind /
 Swarmguard token modifiers), Plunder, Apex (+ Singularity doubling), Windfury, Reborn
